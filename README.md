@@ -1,2 +1,2 @@
 # Projekt-system-rezerwacji-uslug
-projektsereiskomputerowy.krewetkowo.pl
+projektserwiskomputerowy.krewetkowo.pl
