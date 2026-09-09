@@ -1,0 +1,6 @@
+language: "pl-PL"
+reviews:
+  profile: "chill" # Dostępne opcje: chill, assertive
+  auto_review:
+    enabled: true
+    drafts: false
