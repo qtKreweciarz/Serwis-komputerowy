@@ -23,7 +23,7 @@ jobs:
           python-version: '3.x'
 
       - name: Install dependencies
-        run: pip install google-generativeai
+        run: pip install google-genai
 
       - name: Run AI Review
         env:
@@ -35,9 +35,9 @@ jobs:
         run: |
           python -c "
           import os, subprocess
-          import google.generativeai as genai
+          from google import genai
 
-          genai.configure(api_key=os.environ['GEMINI_API_KEY'])
+          client = genai.Client(api_key=os.environ['GEMINI_API_KEY'])
 
           pr_num = os.environ['PR_NUMBER']
           base_sha = os.environ['BASE_SHA']
@@ -52,29 +52,20 @@ jobs:
           trimmed_diff = diff[:max_len] + '\n... [przycięto ze względu na limit]' if len(diff) > max_len else diff
 
           prompt = f'''Jesteś ekspertem ds. review kodu. Przeanalizuj poniższe zmiany w kodzie (git diff).
-          Wskaz potencjalne błędy, luki bezpieczeństwa oraz propozycje optymalizacji.
+          Wskaż potencjalne błędy, luki bezpieczeństwa oraz propozycje optymalizacji.
           Odpowiadaj zwięźle w języku polskim, używając formatowania Markdown.
 
           Diff:
           {trimmed_diff}'''
 
-          available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-          
-          target_model = None
-          for name in available_models:
-              if 'flash' in name:
-                  target_model = name
-                  break
-          if not target_model and available_models:
-              target_model = available_models[0]
+          model_name = 'gemini-3.8-flash'
+          response = client.models.generate_content(
+              model=model_name,
+              contents=prompt,
+          )
 
-          print(f'Używam modelu: {target_model}')
-          model = genai.GenerativeModel(target_model)
-          
-          response = model.generate_content(prompt)
           review_text = response.text
-
-          comment_body = f'### 🤖 AI Code Review ({target_model})\n\n{review_text}'
+          comment_body = f'### 🤖 AI Code Review ({model_name})\n\n{review_text}'
 
           with open('review.md', 'w', encoding='utf-8') as f:
               f.write(comment_body)
