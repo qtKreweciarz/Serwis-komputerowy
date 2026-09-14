@@ -1,0 +1,73 @@
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run AI Review
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          python -c "
+          import os, requests, subprocess
+
+          api_key = os.environ['GEMINI_API_KEY']
+          pr_num = os.environ['PR_NUMBER']
+          base_sha = os.environ['BASE_SHA']
+          head_sha = os.environ['HEAD_SHA']
+
+          diff = subprocess.check_output(['git', 'diff', f'{base_sha}..{head_sha}']).decode('utf-8', errors='ignore')
+          if not diff.strip():
+              print('Brak zmian do analizy.')
+              exit(0)
+
+          max_len = 12000
+          trimmed_diff = diff[:max_len] + '\n... [przycięto ze względu na limit]' if len(diff) > max_len else diff
+
+          prompt = f'''Jesteś ekspertem ds. review kodu. Przeanalizuj poniższe zmiany w kodzie (git diff).
+          Wskaz potencjalne błędy, luki bezpieczeństwa oraz propozycje optymalizacji.
+          Odpowiadaj zwięźle w języku polskim, używając formatowania Markdown.
+
+          Diff:
+          {trimmed_diff}'''
+
+          url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}'
+          res = requests.post(url, json={'contents': [{'parts': [{'text': prompt}]}]})
+
+          if res.status_code != 200:
+              print('Błąd API:', res.text)
+              exit(1)
+
+          review_text = res.json()['candidates'][0]['content']['parts'][0]['text']
+          comment_body = f'### 🤖 AI Code Review\n\n{review_text}'
+
+          with open('review.md', 'w', encoding='utf-8') as f:
+              f.write(comment_body)
+
+          subprocess.run(['gh', 'pr', 'comment', pr_num, '--body-file', 'review.md'], check=True)
+          "
