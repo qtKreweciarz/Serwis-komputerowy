@@ -320,7 +320,7 @@ ALTER TABLE `uslugi`
 -- Dodatkowe indeksy uzasadnione zapytaniami systemu 
 --
 
--- Sprawdzanie konfliktu terminu danego pracownika (najczęstsze zapytanie systemu)
+-- Sprawdzanie konfliktu terminu danego pracownika 
 ALTER TABLE `rezerwacje`
   ADD INDEX `idx_pracownik_data` (`pracownik_id`, `data_rezerwacji`);
 
@@ -333,7 +333,7 @@ ALTER TABLE `uslugi`
   ADD INDEX `idx_kategoria_aktywna` (`kategoria_id`, `aktywna`);
 
 --
--- Dodatkowe ograniczenia integralności (ocena 5/6)
+-- Dodatkowe ograniczenia integralności
 --
 
 -- Jeden użytkownik może mieć tylko jeden profil pracownika
