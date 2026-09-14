@@ -6,9 +6,7 @@ on:
       - main
       - develop
   pull_request:
-    branches:
-      - main
-      - develop
+    branches: [main, develop]
 
 jobs:
   build-and-check:
@@ -54,3 +52,43 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           curl -X POST "${{ secrets.DEPLOY_WEBHOOK_URL }}"
+
+      - name: Dodanie komentarza do PR
+        if: github.event_name == 'pull_request'
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            -d '{"body":"Komentarz wygenerowany przez Gemini..."}'
+
+      - name: Wysłanie diff do Gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python - <<'PY'
+          import os, subprocess, json, urllib.request, urllib.parse
+
+          diff = subprocess.check_output([
+              'git', 'diff', f'{os.environ["BASE_SHA"]}..{os.environ["HEAD_SHA"]}'
+          ], text=True)
+
+          payload = {
+            "contents": [{
+              "parts": [{
+                "text": "Przeanalizuj te zmiany i napisz krótki komentarz do review:\n\n" + diff
+              }]
+            }]
+          }
+
+          req = urllib.request.Request(
+            url=f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={os.environ['GEMINI_API_KEY']}",
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+          )
+
+          with urllib.request.urlopen(req, timeout=60) as resp:
+              data = json.loads(resp.read().decode())
+              print(data)
+          PY
