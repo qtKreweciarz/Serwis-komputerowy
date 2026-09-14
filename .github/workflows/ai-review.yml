@@ -23,7 +23,7 @@ jobs:
           python-version: '3.x'
 
       - name: Install dependencies
-        run: pip install requests
+        run: pip install google-generativeai
 
       - name: Run AI Review
         env:
@@ -34,9 +34,11 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           python -c "
-          import os, requests, subprocess
+          import os, subprocess
+          import google.generativeai as genai
 
-          api_key = os.environ['GEMINI_API_KEY']
+          genai.configure(api_key=os.environ['GEMINI_API_KEY'])
+
           pr_num = os.environ['PR_NUMBER']
           base_sha = os.environ['BASE_SHA']
           head_sha = os.environ['HEAD_SHA']
@@ -56,15 +58,23 @@ jobs:
           Diff:
           {trimmed_diff}'''
 
-          url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}'
-          res = requests.post(url, json={'contents': [{'parts': [{'text': prompt}]}]})
+          available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+          
+          target_model = None
+          for name in available_models:
+              if 'flash' in name:
+                  target_model = name
+                  break
+          if not target_model and available_models:
+              target_model = available_models[0]
 
-          if res.status_code != 200:
-              print('Błąd API:', res.text)
-              exit(1)
+          print(f'Używam modelu: {target_model}')
+          model = genai.GenerativeModel(target_model)
+          
+          response = model.generate_content(prompt)
+          review_text = response.text
 
-          review_text = res.json()['candidates'][0]['content']['parts'][0]['text']
-          comment_body = f'### 🤖 AI Code Review\n\n{review_text}'
+          comment_body = f'### 🤖 AI Code Review ({target_model})\n\n{review_text}'
 
           with open('review.md', 'w', encoding='utf-8') as f:
               f.write(comment_body)
