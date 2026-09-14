@@ -1,73 +1,94 @@
-name: AI Code Review
+name: CI/CD Pipeline
 
 on:
+  push:
+    branches:
+      - main
+      - develop
   pull_request:
-    types: [opened, synchronize]
+    branches: [main, develop]
 
 jobs:
-  review:
+  build-and-check:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repozytorium z pełną historią
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Set up Python
+      - name: Konfiguracja środowiska Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-      - name: Install dependencies
-        run: pip install requests
-
-      - name: Run AI Review
+      - name: Analiza zmian (Git Diff)
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           python -c "
-          import os, requests, subprocess
+          import os, subprocess
 
-          api_key = os.environ['GEMINI_API_KEY']
-          pr_num = os.environ['PR_NUMBER']
-          base_sha = os.environ['BASE_SHA']
-          head_sha = os.environ['HEAD_SHA']
+          base_sha = os.environ.get('BASE_SHA')
+          head_sha = os.environ.get('HEAD_SHA')
 
-          diff = subprocess.check_output(['git', 'diff', f'{base_sha}..{head_sha}']).decode('utf-8', errors='ignore')
-          if not diff.strip():
-              print('Brak zmian do analizy.')
-              exit(0)
+          # Zabezpieczenie przed pustym SHA lub nową gałęzią
+          if not base_sha or base_sha == '0000000000000000000000000000000000000000':
+              base_sha = 'HEAD~1'
+          if not head_sha:
+              head_sha = 'HEAD'
 
-          max_len = 12000
-          trimmed_diff = diff[:max_len] + '\n... [przycięto ze względu na limit]' if len(diff) > max_len else diff
-
-          prompt = f'''Jesteś ekspertem ds. review kodu. Przeanalizuj poniższe zmiany w kodzie (git diff).
-          Wskaz potencjalne błędy, luki bezpieczeństwa oraz propozycje optymalizacji.
-          Odpowiadaj zwięźle w języku polskim, używając formatowania Markdown.
-
-          Diff:
-          {trimmed_diff}'''
-
-          url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}'
-          res = requests.post(url, json={'contents': [{'parts': [{'text': prompt}]}]})
-
-          if res.status_code != 200:
-              print('Błąd API:', res.text)
-              exit(1)
-
-          review_text = res.json()['candidates'][0]['content']['parts'][0]['text']
-          comment_body = f'### 🤖 AI Code Review\n\n{review_text}'
-
-          with open('review.md', 'w', encoding='utf-8') as f:
-              f.write(comment_body)
-
-          subprocess.run(['gh', 'pr', 'comment', pr_num, '--body-file', 'review.md'], check=True)
+          try:
+              diff = subprocess.check_output(['git', 'diff', f'{base_sha}..{head_sha}']).decode('utf-8', errors='ignore')
+              print('=== WYKRYTE ZMIANY ===')
+              print(diff if diff else 'Brak zmian w kodzie.')
+          except subprocess.CalledProcessError as e:
+              print(f'Błąd podczas wykonywania git diff: {e}')
           "
+
+      - name: Automatyczne wdrożenie przez Webhook (tylko gałąź main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          curl -X POST "${{ secrets.DEPLOY_WEBHOOK_URL }}"
+
+      - name: Dodanie komentarza do PR
+        if: github.event_name == 'pull_request'
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            -d '{"body":"Komentarz wygenerowany przez Gemini..."}'
+
+      - name: Wysłanie diff do Gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python - <<'PY'
+          import os, subprocess, json, urllib.request, urllib.parse
+
+          diff = subprocess.check_output([
+              'git', 'diff', f'{os.environ["BASE_SHA"]}..{os.environ["HEAD_SHA"]}'
+          ], text=True)
+
+          payload = {
+            "contents": [{
+              "parts": [{
+                "text": "Przeanalizuj te zmiany i napisz krótki komentarz do review:\n\n" + diff
+              }]
+            }]
+          }
+
+          req = urllib.request.Request(
+            url=f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={os.environ['GEMINI_API_KEY']}",
+            data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST"
+          )
+
+          with urllib.request.urlopen(req, timeout=60) as resp:
+              data = json.loads(resp.read().decode())
+              print(data)
+          PY
