@@ -315,8 +315,128 @@ ALTER TABLE `rezerwacje`
 --
 ALTER TABLE `uslugi`
   ADD CONSTRAINT `uslugi_ibfk_1` FOREIGN KEY (`kategoria_id`) REFERENCES `kategorie_uslug` (`id`);
-COMMIT;
 
+--
+-- Dodatkowe indeksy uzasadnione zapytaniami systemu 
+--
+
+-- Sprawdzanie konfliktu terminu danego pracownika (najczęstsze zapytanie systemu)
+ALTER TABLE `rezerwacje`
+  ADD INDEX `idx_pracownik_data` (`pracownik_id`, `data_rezerwacji`);
+
+-- Panel klienta: podział rezerwacji na przyszłe / zakończone-anulowane
+ALTER TABLE `rezerwacje`
+  ADD INDEX `idx_klient_status` (`klient_id`, `status`);
+
+-- Publiczna oferta usług filtrowana po kategorii i aktywności
+ALTER TABLE `uslugi`
+  ADD INDEX `idx_kategoria_aktywna` (`kategoria_id`, `aktywna`);
+
+--
+-- Dodatkowe ograniczenia integralności (ocena 5/6)
+--
+
+-- Jeden użytkownik może mieć tylko jeden profil pracownika
+ALTER TABLE `pracownicy`
+  ADD UNIQUE KEY `uq_uzytkownik_id` (`uzytkownik_id`);
+
+-- Brak możliwości dodania dwóch wpisów dostępności na ten sam dzień tygodnia
+ALTER TABLE `dostepnosc_pracownikow`
+  ADD UNIQUE KEY `uq_pracownik_dzien` (`pracownik_id`, `dzien_tygodnia`);
+
+-- Godzina końca musi być późniejsza niż godzina początku
+ALTER TABLE `rezerwacje`
+  ADD CONSTRAINT `chk_rezerwacje_godziny` CHECK (`godzina_do` > `godzina_od`);
+
+ALTER TABLE `dostepnosc_pracownikow`
+  ADD CONSTRAINT `chk_dostepnosc_godziny` CHECK (`godzina_do` > `godzina_od`);
+
+-- Cena i czas trwania usługi nie mogą być ujemne/zerowe
+ALTER TABLE `uslugi`
+  ADD CONSTRAINT `chk_uslugi_cena` CHECK (`cena` >= 0),
+  ADD CONSTRAINT `chk_uslugi_czas` CHECK (`czas_trwania` > 0);
+
+--
+-- Rozszerzenie 1: historia zmian statusów rezerwacji 
+--
+
+CREATE TABLE `historia_statusow_rezerwacji` (
+  `id` int(11) NOT NULL,
+  `rezerwacja_id` int(11) NOT NULL,
+  `status_poprzedni` enum('oczekujaca','potwierdzona','zrealizowana','anulowana') DEFAULT NULL,
+  `status_nowy` enum('oczekujaca','potwierdzona','zrealizowana','anulowana') NOT NULL,
+  `zmienione_przez` int(11) NOT NULL,
+  `data_zmiany` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE `historia_statusow_rezerwacji`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `rezerwacja_id` (`rezerwacja_id`),
+  ADD KEY `zmienione_przez` (`zmienione_przez`);
+
+ALTER TABLE `historia_statusow_rezerwacji`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `historia_statusow_rezerwacji`
+  ADD CONSTRAINT `historia_statusow_ibfk_1` FOREIGN KEY (`rezerwacja_id`) REFERENCES `rezerwacje` (`id`),
+  ADD CONSTRAINT `historia_statusow_ibfk_2` FOREIGN KEY (`zmienione_przez`) REFERENCES `uzytkownicy` (`id`);
+
+INSERT INTO `historia_statusow_rezerwacji` (`id`, `rezerwacja_id`, `status_poprzedni`, `status_nowy`, `zmienione_przez`, `data_zmiany`) VALUES
+(1, 1, 'oczekujaca', 'potwierdzona', 1, '2026-09-08 17:10:00');
+
+--
+-- Rozszerzenie 2: log operacji administratora 
+--
+
+CREATE TABLE `log_administracyjny` (
+  `id` int(11) NOT NULL,
+  `admin_id` int(11) NOT NULL,
+  `akcja` varchar(100) NOT NULL,
+  `opis` text DEFAULT NULL,
+  `data_utworzenia` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE `log_administracyjny`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `admin_id` (`admin_id`);
+
+ALTER TABLE `log_administracyjny`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `log_administracyjny`
+  ADD CONSTRAINT `log_administracyjny_ibfk_1` FOREIGN KEY (`admin_id`) REFERENCES `uzytkownicy` (`id`);
+
+INSERT INTO `log_administracyjny` (`id`, `admin_id`, `akcja`, `opis`, `data_utworzenia`) VALUES
+(1, 1, 'zmiana_statusu_rezerwacji', 'Potwierdzono rezerwację #1', '2026-09-08 17:10:00');
+
+--
+-- Rozszerzenie 3: urlopy i dni wolne pracowników 
+--
+
+CREATE TABLE `urlopy_pracownikow` (
+  `id` int(11) NOT NULL,
+  `pracownik_id` int(11) NOT NULL,
+  `data_od` date NOT NULL,
+  `data_do` date NOT NULL,
+  `powod` varchar(255) DEFAULT NULL,
+  `data_utworzenia` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE `urlopy_pracownikow`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `pracownik_id` (`pracownik_id`);
+
+ALTER TABLE `urlopy_pracownikow`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `urlopy_pracownikow`
+  ADD CONSTRAINT `urlopy_pracownikow_ibfk_1` FOREIGN KEY (`pracownik_id`) REFERENCES `pracownicy` (`id`),
+  ADD CONSTRAINT `chk_urlop_daty` CHECK (`data_do` >= `data_od`);
+
+INSERT INTO `urlopy_pracownikow` (`id`, `pracownik_id`, `data_od`, `data_do`, `powod`) VALUES
+(1, 1, '2026-12-23', '2026-12-31', 'Urlop świąteczny');
+
+COMMIT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
