@@ -1,11 +1,14 @@
 name: AI Code Review
 
 on:
+  push:
+    branches:
+      - main
+      - develop
   pull_request:
     branches:
       - main
       - develop
-    types: [opened, synchronize]
 
 jobs:
   review:
