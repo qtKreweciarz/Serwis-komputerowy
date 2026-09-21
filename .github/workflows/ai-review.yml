@@ -32,7 +32,7 @@ jobs:
           python3 - <<'PY'
           import os, subprocess, json, urllib.request, urllib.error, sys, time
 
-          print("WERSJA SKRYPTU: v4 (retry + fallback)")
+          print("WERSJA SKRYPTU: v5 (retry + fallback)")
 
           base = os.environ.get('BASE_SHA') or ''
           head = os.environ.get('HEAD_SHA') or 'HEAD'
@@ -115,7 +115,7 @@ jobs:
 
   deploy:
     needs: review
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: false   # tymczasowo wyłączony (webhook zwraca 403); zmień na: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy webhook
