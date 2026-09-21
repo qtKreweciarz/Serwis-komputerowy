@@ -13,6 +13,7 @@ permissions:
 jobs:
   review:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -23,7 +24,7 @@ jobs:
       - name: Analiza Gemini i komentarz
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: gemini-3.6-flash
+          GEMINI_MODELS: gemini-3.6-flash,gemini-flash-latest,gemini-flash-lite-latest
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -32,7 +33,7 @@ jobs:
           python3 - <<'PY'
           import os, subprocess, json, urllib.request, urllib.error, sys, time
 
-          print("WERSJA SKRYPTU: v5 (retry + fallback)")
+          print("WERSJA SKRYPTU: v6 (retry + wiele modeli + bez failowania)")
 
           base = os.environ.get('BASE_SHA') or ''
           head = os.environ.get('HEAD_SHA') or 'HEAD'
@@ -55,14 +56,15 @@ jobs:
               print("Brak GEMINI_API_KEY (secret nie ustawiony lub niedostępny).")
               sys.exit(1)
 
-          models = [os.environ.get('GEMINI_MODEL', 'gemini-3.6-flash'), 'gemini-flash-latest']
+          models = [m.strip() for m in os.environ.get('GEMINI_MODELS', '').split(',') if m.strip()]
           payload = {"contents": [{"parts": [{"text":
               "Przeanalizuj poniższy diff i napisz krótką recenzję kodu po polsku:\n\n" + diff[:8000]}]}]}
 
           comment = None
+          used_model = None
           for model in models:
               url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-              for attempt in range(4):
+              for attempt in range(3):
                   req = urllib.request.Request(
                       url, data=json.dumps(payload).encode(), method="POST",
                       headers={"Content-Type": "application/json", "x-goog-api-key": api_key})
@@ -70,14 +72,18 @@ jobs:
                       with urllib.request.urlopen(req, timeout=60) as r:
                           data = json.loads(r.read().decode())
                       comment = data['candidates'][0]['content']['parts'][0]['text']
+                      used_model = model
                       print(f"OK: model {model}, próba {attempt + 1}")
                       break
                   except urllib.error.HTTPError as e:
                       body = e.read().decode()
-                      print(f"Gemini {model} HTTP {e.code} (próba {attempt + 1}): {body[:300]}")
+                      print(f"Gemini {model} HTTP {e.code} (próba {attempt + 1}): {body[:200]}")
                       if e.code in (429, 500, 503, 504):
-                          time.sleep(5 * (attempt + 1))
+                          time.sleep(10 * (attempt + 1))
                           continue
+                      break
+                  except (KeyError, IndexError) as e:
+                      print(f"Nieoczekiwana odpowiedź od {model}: {e}")
                       break
                   except Exception as e:
                       print(f"Błąd Gemini: {e}")
@@ -85,19 +91,23 @@ jobs:
               if comment:
                   break
 
-          if not comment:
-              print("Nie udało się uzyskać odpowiedzi od Gemini.")
-              sys.exit(1)
-
           repo = os.environ['GITHUB_REPOSITORY']
           if os.environ.get('GITHUB_EVENT_NAME') == 'pull_request':
               post_url = f"https://api.github.com/repos/{repo}/issues/{os.environ['PR_NUMBER']}/comments"
           else:
               post_url = f"https://api.github.com/repos/{repo}/commits/{os.environ['GITHUB_SHA']}/comments"
 
+          if comment:
+              body_text = f"🤖 **Gemini AI Review** (`{used_model}`):\n\n{comment}"
+          else:
+              print("::warning::Gemini jest chwilowo niedostępne (503). Review pominięte.")
+              body_text = ("🤖 **Gemini AI Review:** nie udało się wykonać recenzji, "
+                           "bo Gemini API jest chwilowo przeciążone (503). "
+                           "Uruchom workflow ponownie później (Actions → Run workflow).")
+
           post = urllib.request.Request(
               post_url,
-              data=json.dumps({"body": f"🤖 **Gemini AI Review:**\n\n{comment}"}).encode(),
+              data=json.dumps({"body": body_text}).encode(),
               method="POST",
               headers={
                   "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
@@ -115,7 +125,7 @@ jobs:
 
   deploy:
     needs: review
-    if: false   # tymczasowo wyłączony (webhook zwraca 403); zmień na: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: false   # tymczasowo wyłączony (webhook zwracał 403); zmień na: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Deploy webhook
