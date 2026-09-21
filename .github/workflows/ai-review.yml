@@ -30,9 +30,9 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           python3 - <<'PY'
-          import os, subprocess, json, urllib.request, urllib.error, sys
+          import os, subprocess, json, urllib.request, urllib.error, sys, time
 
-          print("WERSJA SKRYPTU: v3, model =", os.environ.get('GEMINI_MODEL'))
+          print("WERSJA SKRYPTU: v4 (retry + fallback)")
 
           base = os.environ.get('BASE_SHA') or ''
           head = os.environ.get('HEAD_SHA') or 'HEAD'
@@ -55,23 +55,38 @@ jobs:
               print("Brak GEMINI_API_KEY (secret nie ustawiony lub niedostępny).")
               sys.exit(1)
 
-          model = os.environ.get('GEMINI_MODEL', 'gemini-3.6-flash')
-          url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+          models = [os.environ.get('GEMINI_MODEL', 'gemini-3.6-flash'), 'gemini-flash-latest']
           payload = {"contents": [{"parts": [{"text":
               "Przeanalizuj poniższy diff i napisz krótką recenzję kodu po polsku:\n\n" + diff[:8000]}]}]}
 
-          req = urllib.request.Request(
-              url, data=json.dumps(payload).encode(), method="POST",
-              headers={"Content-Type": "application/json", "x-goog-api-key": api_key})
-          try:
-              with urllib.request.urlopen(req, timeout=60) as r:
-                  data = json.loads(r.read().decode())
-              comment = data['candidates'][0]['content']['parts'][0]['text']
-          except urllib.error.HTTPError as e:
-              print(f"Gemini HTTP {e.code}: {e.read().decode()}")
-              sys.exit(1)
-          except Exception as e:
-              print(f"Błąd Gemini: {e}")
+          comment = None
+          for model in models:
+              url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+              for attempt in range(4):
+                  req = urllib.request.Request(
+                      url, data=json.dumps(payload).encode(), method="POST",
+                      headers={"Content-Type": "application/json", "x-goog-api-key": api_key})
+                  try:
+                      with urllib.request.urlopen(req, timeout=60) as r:
+                          data = json.loads(r.read().decode())
+                      comment = data['candidates'][0]['content']['parts'][0]['text']
+                      print(f"OK: model {model}, próba {attempt + 1}")
+                      break
+                  except urllib.error.HTTPError as e:
+                      body = e.read().decode()
+                      print(f"Gemini {model} HTTP {e.code} (próba {attempt + 1}): {body[:300]}")
+                      if e.code in (429, 500, 503, 504):
+                          time.sleep(5 * (attempt + 1))
+                          continue
+                      break
+                  except Exception as e:
+                      print(f"Błąd Gemini: {e}")
+                      time.sleep(5)
+              if comment:
+                  break
+
+          if not comment:
+              print("Nie udało się uzyskać odpowiedzi od Gemini.")
               sys.exit(1)
 
           repo = os.environ['GITHUB_REPOSITORY']
