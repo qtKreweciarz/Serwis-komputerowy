@@ -22,6 +22,7 @@ jobs:
       - name: Analiza Gemini i komentarz
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: gemini-3.6-flash
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -51,7 +52,8 @@ jobs:
               print("Brak GEMINI_API_KEY (secret nie ustawiony lub niedostępny).")
               sys.exit(1)
 
-          url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+          model = os.environ.get('GEMINI_MODEL', 'gemini-3.6-flash')
+          url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
           payload = {"contents": [{"parts": [{"text":
               "Przeanalizuj poniższy diff i napisz krótką recenzję kodu po polsku:\n\n" + diff[:8000]}]}]}
 
