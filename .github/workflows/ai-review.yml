@@ -4,6 +4,7 @@ on:
   push:
   pull_request:
     branches: [main, develop]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -30,6 +31,8 @@ jobs:
         run: |
           python3 - <<'PY'
           import os, subprocess, json, urllib.request, urllib.error, sys
+
+          print("WERSJA SKRYPTU: v3, model =", os.environ.get('GEMINI_MODEL'))
 
           base = os.environ.get('BASE_SHA') or ''
           head = os.environ.get('HEAD_SHA') or 'HEAD'
