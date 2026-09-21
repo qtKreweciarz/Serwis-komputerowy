@@ -1,41 +1,25 @@
-name: CI/CD Pipeline
+name: Gemini Code Review
 
 on:
   push:
-    branches:
-      - main
-      - develop
   pull_request:
-    branches:
-      - main
-      - develop
+    branches: [main, develop]
 
 permissions:
   contents: write
   pull-requests: write
-  issues: write
 
 jobs:
-  build-and-check:
+  review:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repozytorium z pełną historią
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Konfiguracja środowiska Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: Automatyczne wdrożenie przez Webhook (tylko gałąź main)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          curl -X POST "${{ secrets.DEPLOY_WEBHOOK_URL }}"
-
-      - name: Analiza Gemini i dodanie komentarza
+      - name: Analiza Gemini i komentarz
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -43,72 +27,76 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          python - <<'PY'
-          import os, subprocess, json, urllib.request
+          python3 - <<'PY'
+          import os, subprocess, json, urllib.request, urllib.error, sys
 
-          base_sha = os.environ.get('BASE_SHA')
-          head_sha = os.environ.get('HEAD_SHA')
-
-          if not base_sha or base_sha == '0000000000000000000000000000000000000000':
-              base_sha = 'HEAD~1'
-          if not head_sha:
-              head_sha = 'HEAD'
+          base = os.environ.get('BASE_SHA') or ''
+          head = os.environ.get('HEAD_SHA') or 'HEAD'
+          if not base or set(base) == {'0'}:
+              base = f'{head}~1'
 
           try:
-              diff = subprocess.check_output(['git', 'diff', f'{base_sha}..{head_sha}'], text=True, errors='ignore')
-          except Exception as e:
-              diff = ""
+              diff = subprocess.check_output(
+                  ['git', 'diff', f'{base}..{head}'], text=True, errors='ignore')
+          except subprocess.CalledProcessError as e:
+              print(f"git diff nie działa: {e}")
+              sys.exit(0)
 
           if not diff.strip():
               print("Brak zmian do przeanalizowania.")
-              exit(0)
+              sys.exit(0)
 
           api_key = os.environ.get('GEMINI_API_KEY')
           if not api_key:
-              print("Błąd: Brak klucza GEMINI_API_KEY!")
-              exit(1)
+              print("Brak GEMINI_API_KEY (secret nie ustawiony lub niedostępny).")
+              sys.exit(1)
 
-          url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
-          payload = {
-              "contents": [{
-                  "parts": [{
-                      "text": "Przeanalizuj poniższy diff kodu i utwórz krótki, zwięzły komentarz z recenzją (code review) po polsku:\n\n" + diff[:8000]
-                  }]
-              }]
-          }
+          url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+          payload = {"contents": [{"parts": [{"text":
+              "Przeanalizuj poniższy diff i napisz krótką recenzję kodu po polsku:\n\n" + diff[:8000]}]}]}
 
-          req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}, method="POST")
+          req = urllib.request.Request(
+              url, data=json.dumps(payload).encode(), method="POST",
+              headers={"Content-Type": "application/json", "x-goog-api-key": api_key})
           try:
-              with urllib.request.urlopen(req, timeout=60) as resp:
-                  data = json.loads(resp.read().decode())
-                  comment_text = data['candidates'][0]['content']['parts'][0]['text']
+              with urllib.request.urlopen(req, timeout=60) as r:
+                  data = json.loads(r.read().decode())
+              comment = data['candidates'][0]['content']['parts'][0]['text']
+          except urllib.error.HTTPError as e:
+              print(f"Gemini HTTP {e.code}: {e.read().decode()}")
+              sys.exit(1)
           except Exception as e:
-              print(f"Błąd Gemini API: {e}")
-              exit(1)
+              print(f"Błąd Gemini: {e}")
+              sys.exit(1)
 
-          gh_token = os.environ.get('GITHUB_TOKEN')
-          repo = os.environ.get('GITHUB_REPOSITORY')
-          event_name = os.environ.get('GITHUB_EVENT_NAME')
-
-          headers = {
-              "Authorization": f"Bearer {gh_token}",
-              "Accept": "application/vnd.github+json"
-          }
-
-          if event_name == 'pull_request':
-              pr_number = os.environ.get('PR_NUMBER')
-              post_url = f"https://api.github.com/repos/{repo}/issues/{pr_number}/comments"
+          repo = os.environ['GITHUB_REPOSITORY']
+          if os.environ.get('GITHUB_EVENT_NAME') == 'pull_request':
+              post_url = f"https://api.github.com/repos/{repo}/issues/{os.environ['PR_NUMBER']}/comments"
           else:
-              commit_sha = os.environ.get('GITHUB_SHA')
-              post_url = f"https://api.github.com/repos/{repo}/commits/{commit_sha}/comments"
+              post_url = f"https://api.github.com/repos/{repo}/commits/{os.environ['GITHUB_SHA']}/comments"
 
-          post_data = json.dumps({"body": f"🤖 **Gemini AI Review:**\n\n{comment_text}"}).encode()
-          post_req = urllib.request.Request(post_url, data=post_data, headers=headers, method="POST")
-
+          post = urllib.request.Request(
+              post_url,
+              data=json.dumps({"body": f"🤖 **Gemini AI Review:**\n\n{comment}"}).encode(),
+              method="POST",
+              headers={
+                  "Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}",
+                  "Accept": "application/vnd.github+json",
+                  "User-Agent": "gemini-review",
+                  "Content-Type": "application/json",
+              })
           try:
-              with urllib.request.urlopen(post_req) as resp:
-                  print("Komentarz został pomyślnie dodany do GitHuba!")
-          except Exception as e:
-              print(f"Błąd podczas wysyłania komentarza na GitHub: {e}")
-              exit(1)
+              urllib.request.urlopen(post)
+              print("Komentarz dodany.")
+          except urllib.error.HTTPError as e:
+              print(f"GitHub HTTP {e.code}: {e.read().decode()}")
+              sys.exit(1)
           PY
+
+  deploy:
+    needs: review
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy webhook
+        run: curl -fsS -X POST "${{ secrets.DEPLOY_WEBHOOK_URL }}"
