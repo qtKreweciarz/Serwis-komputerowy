@@ -45,8 +45,7 @@ Co się dzieje krok po kroku:
 3. Recenzja jest automatycznie wrzucana jako komentarz do PR-a (albo do commita, jeśli to zwykły push) przez GitHub API.
 4. Jeśli po drodze Gemini akurat leży (błąd 503/przeciążenie), workflow nie wywala się na czerwono, tylko po prostu informuje, że recenzja się nie udała i można odpalić ją ręcznie jeszcze raz.
 
-Drugi etap workflowa to **deploy przez webhook** – po pushu na `main` wysyłane jest zapytanie POST na webhook (`DEPLOY_WEBHOOK_URL`), który uruchamia aktualizację strony na serwerze, więc zmiany z GitHuba trafiają na produkcję bez ręcznego wgrywania plików przez FTP. (Aktualnie ten krok jest chwilowo wyłączony w kodzie, bo webhook zwracał błąd 403 – do poprawienia).
-
+Drugi etap workflowa to **deploy przez webhook** – po pushu na `main` wysyłane jest zapytanie POST na webhook (`DEPLOY_WEBHOOK_URL`), który uruchamia aktualizację strony na serwerze, więc zmiany z GitHuba trafiają na produkcję bez ręcznego wgrywania plików przez FTP. 
 Klucze API i adres webhooka trzymane są jako sekrety w ustawieniach repozytorium (GitHub Secrets), nie w kodzie.
 
 ## Jak uruchomić lokalnie
