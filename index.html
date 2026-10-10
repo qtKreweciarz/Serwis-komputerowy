@@ -1,14 +1,15 @@
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Serwis komputerowy</title>
-</head>
-<body>
-    <h1>Serwis komputerowy</h1>
+<?php
+include 'header.php';
+?>
+
+<h1>Witaj w naszym Serwisie Komputerowym!</h1>
+<p>Zarządzaj swoimi zgłoszeniami serwisowymi, sprawdzaj status napraw i korzystaj z naszych usług.</p>
+
+<?php if (!isset($_SESSION['uzytkownik_id'])): ?>
     <p>
-        test2
+        <a href="register.php" style="padding: 10px 15px; background: #007bff; color: white; text-decoration: none; border-radius: 4px;">Załóż konto</a>
+        <a href="login.php" style="padding: 10px 15px; background: #6c757d; color: white; text-decoration: none; border-radius: 4px; margin-left: 10px;">Zaloguj się</a>
     </p>
-</body>
-</html>
+<?php endif; ?>
+
+<?php include 'footer.php'; ?>
