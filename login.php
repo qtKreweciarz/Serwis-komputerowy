@@ -5,6 +5,7 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once 'db.php';
 $errors = [];
 $email = '';
+
 $panele = [
     'klient' => 'panel_klient.php',
     'pracownik' => 'panel_pracownik.php',
@@ -28,20 +29,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($email === '' || $password === '') {
         $errors[] = 'Podaj e-mail i hasło.';
     } else {
-        $stmt = $pdo->prepare('SELECT id, imie, haslo, rola, aktywny FROM uzytkownicy WHERE email = ?');
-        $stmt->execute([$email]);
-        $user = $stmt->fetch();
+        $limit = $pdo->prepare('SELECT COUNT(*) FROM proby_logowania WHERE email = ? AND data_proby > (NOW() - INTERVAL 15 MINUTE)');
+        $limit->execute([$email]);
 
-        if ($user && $user['aktywny'] == 1 && password_verify($password, $user['haslo'])) {
-            session_regenerate_id(true);
-            $_SESSION['uzytkownik_id'] = $user['id'];
-            $_SESSION['imie'] = $user['imie'];
-            $_SESSION['rola'] = $user['rola'];
-            header('Location: ' . cel_przekierowania($user['rola'], $panele));
-            exit;
+        if ($limit->fetchColumn() >= 5) {
+            $errors[] = 'Zbyt wiele nieudanych prób logowania. Spróbuj ponownie za 15 minut.';
+        } else {
+            $stmt = $pdo->prepare('SELECT id, imie, haslo, rola, aktywny FROM uzytkownicy WHERE email = ?');
+            $stmt->execute([$email]);
+            $user = $stmt->fetch();
+
+            if ($user && $user['aktywny'] == 1 && password_verify($password, $user['haslo'])) {
+                $pdo->prepare('DELETE FROM proby_logowania WHERE email = ?')->execute([$email]);
+                session_regenerate_id(true);
+                $_SESSION['uzytkownik_id'] = $user['id'];
+                $_SESSION['imie'] = $user['imie'];
+                $_SESSION['rola'] = $user['rola'];
+                header('Location: ' . cel_przekierowania($user['rola'], $panele));
+                exit;
+            }
+
+            $pdo->prepare('INSERT INTO proby_logowania (email, ip) VALUES (?, ?)')->execute([$email, $_SERVER['REMOTE_ADDR']]);
+            $errors[] = 'Nieprawidłowy e-mail lub hasło.';
         }
-
-        $errors[] = 'Nieprawidłowy e-mail lub hasło.';
     }
 }
 require_once 'header.php';
