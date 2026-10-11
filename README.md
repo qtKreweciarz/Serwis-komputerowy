@@ -59,3 +59,9 @@ Klucze API i adres webhooka trzymane są jako sekrety w ustawieniach repozytoriu
 
 Etap 1 (projekt, konfiguracja GitHuba, struktura bazy) – w trakcie / zakończony.
 Kolejne etapy: podpięcie nowych tabel pod logikę PHP, panel pracownika i admina, historia statusów rezerwacji w praktyce.
+
+## Logowanie i sesje
+- logowanie e-mailem i hasłem (password_verify), nowy identyfikator sesji po zalogowaniu
+- wylogowanie ze zniszczeniem sesji
+- przekierowanie do panelu według roli (klient, pracownik, admin)
+- limit prób logowania: 5 nieudanych prób na 15 minut (tabela proby_logowania)
