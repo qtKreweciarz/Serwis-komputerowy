@@ -5,6 +5,21 @@ if (session_status() === PHP_SESSION_NONE) {
 require_once 'db.php';
 $errors = [];
 $email = '';
+$panele = [
+    'klient' => 'panel_klient.php',
+    'pracownik' => 'panel_pracownik.php',
+    'admin' => 'panel_admin.php'
+];
+
+function cel_przekierowania($rola, $panele) {
+    $plik = $panele[$rola] ?? 'index.php';
+    return file_exists(__DIR__ . '/' . $plik) ? $plik : 'index.php';
+}
+
+if (isset($_SESSION['uzytkownik_id'])) {
+    header('Location: ' . cel_przekierowania($_SESSION['rola'], $panele));
+    exit;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = strtolower(trim($_POST['email'] ?? ''));
@@ -22,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['uzytkownik_id'] = $user['id'];
             $_SESSION['imie'] = $user['imie'];
             $_SESSION['rola'] = $user['rola'];
-            header('Location: index.php');
+            header('Location: ' . cel_przekierowania($user['rola'], $panele));
             exit;
         }
 
