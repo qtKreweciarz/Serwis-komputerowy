@@ -19,9 +19,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($user && $user['aktywny'] == 1 && password_verify($password, $user['haslo'])) {
             session_regenerate_id(true);
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['name'] = $user['imie'];
-            $_SESSION['role'] = $user['rola'];
+            $_SESSION['uzytkownik_id'] = $user['id'];
+            $_SESSION['imie'] = $user['imie'];
+            $_SESSION['rola'] = $user['rola'];
             header('Location: index.php');
             exit;
         }
