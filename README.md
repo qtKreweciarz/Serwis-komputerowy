@@ -65,3 +65,11 @@ Kolejne etapy: podpięcie nowych tabel pod logikę PHP, panel pracownika i admin
 - wylogowanie ze zniszczeniem sesji
 - przekierowanie do panelu według roli (klient, pracownik, admin)
 - limit prób logowania: 5 nieudanych prób na 15 minut (tabela proby_logowania)
+
+## Role, ochrona stron i profil
+- `auth.php` – funkcje `wymagaj_logowania()` i `wymagaj_roli('admin')`, wywoływane na początku każdej chronionej strony
+- niezalogowany użytkownik jest przekierowywany na `login.php`, a zalogowany z nieodpowiednią rolą dostaje odmowę (403)
+- puste strony startowe paneli: `panel_klient.php`, `panel_pracownik.php`, `panel_admin.php`
+- `profil.php` – podgląd i edycja imienia, nazwiska i telefonu z walidacją oraz tokenem CSRF
+- `zmiana_hasla.php` – zmiana hasła po podaniu starego (min. 8 znaków)
+- dane użytkownika wypisywane przez `htmlspecialchars` (ochrona przed XSS)
