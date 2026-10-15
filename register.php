@@ -30,6 +30,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "Niepoprawny format adresu e-mail.";
     }
 
+    $wzor_nazwy = "/^\p{L}[\p{L} '\-]{1,49}$/u";
+    if ($imie !== '' && !preg_match($wzor_nazwy, $imie)) {
+        $errors[] = "Imię: 2–50 znaków, tylko litery, spacje, myślnik lub apostrof.";
+    }
+    if ($nazwisko !== '' && !preg_match($wzor_nazwy, $nazwisko)) {
+        $errors[] = "Nazwisko: 2–50 znaków, tylko litery, spacje, myślnik lub apostrof.";
+    }
+    if (strlen($email) > 100) {
+        $errors[] = "E-mail może mieć maksymalnie 100 znaków.";
+    }
+    if ($password !== '' && strlen($password) < 8) {
+        $errors[] = "Hasło musi mieć co najmniej 8 znaków.";
+    }
+    $telefon_do_bazy = null;
+    if ($telefon !== '') {
+        $czysty = str_replace([' ', '-'], '', $telefon);
+        if (!preg_match('/^(\+48)?[0-9]{9}$/', $czysty)) {
+            $errors[] = "Telefon: 9 cyfr, opcjonalnie z prefiksem +48 (spacje i myślniki są dozwolone).";
+        } else {
+            $telefon_do_bazy = $czysty;
+        }
+    }
+
     if ($password !== $confirm_password) {
         $errors[] = "Hasła muszą być identyczne.";
     }
@@ -47,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $stmt = $pdo->prepare("INSERT INTO uzytkownicy (imie, nazwisko, email, haslo, telefon, rola, aktywny) VALUES (?, ?, ?, ?, ?, 'klient', 1)");
         
-        if ($stmt->execute([$imie, $nazwisko, $email, $hashed_password, $telefon])) {
+        if ($stmt->execute([$imie, $nazwisko, $email, $hashed_password, $telefon_do_bazy])) {
             $success = "Rejestracja przebiegła pomyślnie! Możesz się teraz zalogować.";
             unset($_SESSION['csrf_token']);
         } else {
