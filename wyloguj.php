@@ -1,12 +1,15 @@
 <?php
-session_start();
-$_SESSION = [];
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+require_once 'db.php';
 
-if (ini_get('session.use_cookies')) {
-    $p = session_get_cookie_params();
-    setcookie(session_name(), '', time() - 42000, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
+if (isset($_SESSION['uzytkownik_id'])) {
+    $stmt = $pdo->prepare('UPDATE uzytkownicy SET aktywny = 1, ostatnia_aktywnosc = NULL WHERE id = ?');
+    $stmt->execute([$_SESSION['uzytkownik_id']]);
 }
 
+$_SESSION = [];
 session_destroy();
-header('Location: index.php');
+header('Location: login.php');
 exit;
