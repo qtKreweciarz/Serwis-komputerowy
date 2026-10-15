@@ -35,22 +35,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($limit->fetchColumn() >= 5) {
             $errors[] = 'Zbyt wiele nieudanych prób logowania. Spróbuj ponownie za 15 minut.';
         } else {
-            $stmt = $pdo->prepare('SELECT id, imie, haslo, rola, aktywny FROM uzytkownicy WHERE email = ?');
+            $stmt = $pdo->prepare('SELECT id, imie, haslo, rola, aktywny, ostatnia_aktywnosc FROM uzytkownicy WHERE email = ?');
             $stmt->execute([$email]);
             $user = $stmt->fetch();
 
-            if ($user && $user['aktywny'] == 1 && password_verify($password, $user['haslo'])) {
-                $pdo->prepare('DELETE FROM proby_logowania WHERE email = ?')->execute([$email]);
-                session_regenerate_id(true);
-                $_SESSION['uzytkownik_id'] = $user['id'];
-                $_SESSION['imie'] = $user['imie'];
-                $_SESSION['rola'] = $user['rola'];
-                header('Location: ' . cel_przekierowania($user['rola'], $panele));
-                exit;
-            }
+            if ($user && password_verify($password, $user['haslo'])) {
+                
+                $mozna_zalogowac = true;
 
-            $pdo->prepare('INSERT INTO proby_logowania (email, ip) VALUES (?, ?)')->execute([$email, $_SERVER['REMOTE_ADDR']]);
-            $errors[] = 'Nieprawidłowy e-mail lub hasło.';
+                // Sprawdzamy czy użytkownik jest już zalogowany (aktywny == 0)
+                if ($user['aktywny'] == 0) {
+                    // Sprawdzamy czy od ostatniej aktywności minęło mniej niż 2 minuty (120 sekund)
+                    if (!empty($user['ostatnia_aktywnosc'])) {
+                        $czas_ostatni = strtotime($user['ostatnia_aktywnosc']);
+                        if (time() - $czas_ostatni < 120) {
+                            $mozna_zalogowac = false;
+                            $errors[] = 'Ten użytkownik jest już zalogowany na innym urządzeniu.';
+                        }
+                    } else {
+                        $mozna_zalogowac = false;
+                        $errors[] = 'Ten użytkownik jest już zalogowany na innym urządzeniu.';
+                    }
+                }
+
+                if ($mozna_zalogowac) {
+                    $pdo->prepare('DELETE FROM proby_logowania WHERE email = ?')->execute([$email]);
+                    
+                    // Zmieniamy status na 0 (zalogowany) i zapisujemy czas aktywności
+                    $update = $pdo->prepare('UPDATE uzytkownicy SET aktywny = 0, ostatnia_aktywnosc = NOW() WHERE id = ?');
+                    $update->execute([$user['id']]);
+
+                    session_regenerate_id(true);
+                    $_SESSION['uzytkownik_id'] = $user['id'];
+                    $_SESSION['imie'] = $user['imie'];
+                    $_SESSION['rola'] = $user['rola'];
+                    header('Location: ' . cel_przekierowania($user['rola'], $panele));
+                    exit;
+                }
+            } else {
+                $pdo->prepare('INSERT INTO proby_logowania (email, ip) VALUES (?, ?)')->execute([$email, $_SERVER['REMOTE_ADDR']]);
+                $errors[] = 'Nieprawidłowy e-mail lub hasło.';
+            }
         }
     }
 }
