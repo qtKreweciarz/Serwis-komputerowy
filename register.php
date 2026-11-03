@@ -91,7 +91,107 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </ul>
     </div>
 <?php endif; ?>
+<?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+require_once 'db.php';
+$errors = [];
+$success = '';
+$imie = '';
+$nazwisko = '';
+$email = '';
+$telefon = '';
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $imie = trim($_POST['imie'] ?? '');
+    $nazwisko = trim($_POST['nazwisko'] ?? '');
+    $email = strtolower(trim($_POST['email'] ?? ''));
+    $haslo = $_POST['haslo'] ?? '';
+    $telefon = trim($_POST['telefon'] ?? '');
+
+    if ($imie === '' || $nazwisko === '' || $email === '' || $haslo === '') {
+        $errors[] = 'Wypełnij wszystkie wymagane pola.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = 'Podaj poprawny adres e-mail.';
+    } elseif (strlen($haslo) < 6) {
+        $errors[] = 'Hasło musi mieć co najmniej 6 znaków.';
+    } else {
+        $stmt = $pdo->prepare('SELECT id FROM uzytkownicy WHERE email = ?');
+        $stmt->execute([$email]);
+        if ($stmt->fetch()) {
+            $errors[] = 'Ten adres e-mail jest już zarejestrowany w systemie.';
+        } else {
+            $hash = password_hash($haslo, PASSWORD_DEFAULT);
+            $ins = $pdo->prepare('INSERT INTO uzytkownicy (imie, nazwisko, email, haslo, telefon, rola, aktywny) VALUES (?, ?, ?, ?, ?, "klient", 1)');
+            if ($ins->execute([$imie, $nazwisko, $email, $hash, $telefon])) {
+                $success = 'Rejestracja przebiegła pomyślnie! Możesz się teraz <a href="login.php">zalogować</a>.';
+            } else {
+                $errors[] = 'Wystąpił błąd podczas rejestracji. Spróbuj ponownie.';
+            }
+        }
+    }
+}
+require_once 'header.php';
+?>
+
+<div class="row justify-content-center mt-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <h2 class="text-center mb-4 fw-bold">Rejestracja konta</h2>
+
+                <?php foreach ($errors as $error): ?>
+                    <div class="alert alert-danger py-2" role="alert">
+                        <?= htmlspecialchars($error) ?>
+                    </div>
+                <?php endforeach; ?>
+
+                <?php if ($success): ?>
+                    <div class="alert alert-success py-2" role="alert">
+                        <?= $success ?>
+                    </div>
+                <?php endif; ?>
+
+                <form method="post" action="register.php">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="imie" class="form-label">Imię *</label>
+                            <input type="text" class="form-control" id="imie" name="imie" value="<?= htmlspecialchars($imie) ?>" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="nazwisko" class="form-label">Nazwisko *</label>
+                            <input type="text" class="form-control" id="nazwisko" name="nazwisko" value="<?= htmlspecialchars($nazwisko) ?>" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="email" class="form-label">E-mail *</label>
+                        <input type="email" class="form-control" id="email" name="email" value="<?= htmlspecialchars($email) ?>" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="telefon" class="form-label">Telefon (opcjonalnie)</label>
+                        <input type="text" class="form-control" id="telefon" name="telefon" value="<?= htmlspecialchars($telefon) ?>">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="haslo" class="form-label">Hasło (min. 6 znaków) *</label>
+                        <input type="password" class="form-control" id="haslo" name="haslo" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-2">Zarejestruj się</button>
+                </form>
+
+                <div class="text-center mt-3">
+                    <small class="text-muted">Masz już konto? <a href="login.php">Zaloguj się</a></small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php require_once 'footer.php'; ?>
 <?php if ($success): ?>
     <div style="color: green; background: #e6ffe6; padding: 10px; margin-bottom: 15px; border: 1px solid green;">
         <?= htmlspecialchars($success) ?><br>
