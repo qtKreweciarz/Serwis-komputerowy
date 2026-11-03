@@ -40,29 +40,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = $stmt->fetch();
 
             if ($user && password_verify($password, $user['haslo'])) {
-                
-                $mozna_zalogowac = true;
-
-                // Sprawdzamy czy użytkownik jest już zalogowany (aktywny == 0)
                 if ($user['aktywny'] == 0) {
-                    // Sprawdzamy czy od ostatniej aktywności minęło mniej niż 2 minuty (120 sekund)
-                    if (!empty($user['ostatnia_aktywnosc'])) {
-                        $czas_ostatni = strtotime($user['ostatnia_aktywnosc']);
-                        if (time() - $czas_ostatni < 120) {
-                            $mozna_zalogowac = false;
-                            $errors[] = 'Ten użytkownik jest już zalogowany na innym urządzeniu.';
-                        }
-                    } else {
-                        $mozna_zalogowac = false;
-                        $errors[] = 'Ten użytkownik jest już zalogowany na innym urządzeniu.';
-                    }
-                }
-
-                if ($mozna_zalogowac) {
+                    $errors[] = 'To konto zostało zablokowane lub jest nieaktywne.';
+                } else {
                     $pdo->prepare('DELETE FROM proby_logowania WHERE email = ?')->execute([$email]);
                     
-                    // Zmieniamy status na 0 (zalogowany) i zapisujemy czas aktywności
-                    $update = $pdo->prepare('UPDATE uzytkownicy SET aktywny = 0, ostatnia_aktywnosc = NOW() WHERE id = ?');
+                    $update = $pdo->prepare('UPDATE uzytkownicy SET ostatnia_aktywnosc = NOW() WHERE id = ?');
                     $update->execute([$user['id']]);
 
                     session_regenerate_id(true);
@@ -82,19 +65,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 require_once 'header.php';
 ?>
 
-<h1>Logowanie</h1>
+<div class="row justify-content-center mt-5">
+    <div class="col-md-5">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <h2 class="text-center mb-4 fw-bold">Logowanie</h2>
 
-<?php foreach ($errors as $error): ?>
-    <p class="error"><?= htmlspecialchars($error) ?></p>
-<?php endforeach; ?>
-<form method="post" action="login.php">
-    <label for="email">E-mail</label>
-    <input type="email" id="email" name="email" value="<?= htmlspecialchars($email) ?>" required>
+                <?php foreach ($errors as $error): ?>
+                    <div class="alert alert-danger py-2" role="alert">
+                        <?= htmlspecialchars($error) ?>
+                    </div>
+                <?php endforeach; ?>
 
-    <label for="password">Hasło</label>
-    <input type="password" id="password" name="password" required>
+                <form method="post" action="login.php">
+                    <div class="mb-3">
+                        <label for="email" class="form-label">E-mail</label>
+                        <input type="email" class="form-control" id="email" name="email" value="<?= htmlspecialchars($email) ?>" required>
+                    </div>
 
-    <button type="submit">Zaloguj się</button>
-</form>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Hasło</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-2">Zaloguj się</button>
+                </form>
+
+                <div class="text-center mt-3">
+                    <small class="text-muted">Nie masz konta? <a href="register.php">Zarejestruj się</a></small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <?php require_once 'footer.php'; ?>
