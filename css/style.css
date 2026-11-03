@@ -1,1 +1,145 @@
-a
+/*1. GLOBALNE STYLE I ZMIENNE*/
+:root {
+    --primary-color: #2563eb;
+    --primary-hover: #1d4ed8;
+    --bg-color: #f8fafc;
+    --card-bg: #ffffff;
+    --text-color: #1e293b;
+    --text-muted: #64748b;
+    --border-color: #e2e8f0;
+    --sidebar-width: 260px;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+}
+
+/* Główna zawartość rozpychająca stopkę do dołu */
+main, .container {
+    flex: 1;
+}
+
+/* 2. NAGŁÓWEK I NAWIGACJA*/
+navbar, .navbar {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+.navbar-brand {
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+/*3. KAFELKI STATYSTYCZNE (DASHBOARD)*/
+.card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    overflow: hidden;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+}
+
+.card .card-title {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.85;
+}
+
+.card .card-text {
+    font-weight: 700;
+}
+
+/* 4. TABELE*/
+.table-responsive {
+    background: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+}
+
+table.table {
+    margin-bottom: 0;
+}
+
+table.table th {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    background-color: #1e293b !important;
+    color: #fff !important;
+    border-top: none;
+    padding: 12px 15px;
+}
+
+table.table td {
+    padding: 12px 15px;
+    vertical-align: middle;
+    color: var(--text-color);
+    border-bottom-color: var(--border-color);
+}
+
+/* ==========================================
+   5. PRZYCISKI I FORMULARZE
+   ========================================== */
+.btn {
+    border-radius: 8px;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    transition: all 0.2s ease;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-hover);
+    border-color: var(--primary-hover);
+}
+
+.form-control, .form-select {
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    padding: 0.65rem 1rem;
+    box-shadow: none;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* 6. BADGES (STATUSY I ROLE)*/
+.badge {
+    padding: 0.5em 0.8em;
+    font-weight: 600;
+    border-radius: 6px;
+    font-size: 0.75rem;
+}
+
+
+/* 7. STOPKA */
+
+footer {
+    background-color: #1e293b;
+    color: #cbd5e1;
+    text-align: center;
+    padding: 1.5rem 0;
+    margin-top: auto;
+    font-size: 0.9rem;
+    border-top: 1px solid #334155;
+}
