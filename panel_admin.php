@@ -160,53 +160,6 @@ if (isset($_GET['res_action']) && isset($_GET['res_id'])) {
     exit();
 }
 
-// 7. DODAWANIE USŁUGI
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_service'])) {
-    $nazwa = trim($_POST['nazwa'] ?? '');
-    $kategoria_id = (int)($_POST['kategoria_id'] ?? 1);
-    $cena = (float)($_POST['cena'] ?? 0);
-    $czas = (int)($_POST['czas_trwania'] ?? 30);
-    $opis = trim($_POST['opis'] ?? '');
-
-    if ($nazwa !== '' && $cena > 0) {
-        $stmtIns = $pdo->prepare("INSERT INTO uslugi (kategoria_id, nazwa, opis, czas_trwania, cena, aktywna) VALUES (?, ?, ?, ?, ?, 1)");
-        $stmtIns->execute([$kategoria_id, $nazwa, $opis, $czas, $cena]);
-        $message = "Nowa usługa została dodana.";
-    } else {
-        $error = "Podaj poprawną nazwę i cenę usługi.";
-    }
-    header("Location: panel_admin.php?tab=services&msg=" . urlencode($message) . "&err=" . urlencode($error));
-    exit();
-}
-
-// 8. EDYCJA USŁUGI
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_service'])) {
-    $sid = (int)$_POST['service_id'];
-    $nazwa = trim($_POST['nazwa']);
-    $kategoria_id = (int)$_POST['kategoria_id'];
-    $cena = (float)$_POST['cena'];
-    $czas = (int)$_POST['czas_trwania'];
-    $opis = trim($_POST['opis']);
-
-    if ($nazwa !== '' && $cena > 0) {
-        $stmt = $pdo->prepare("UPDATE uslugi SET nazwa=?, kategoria_id=?, cena=?, czas_trwania=?, opis=? WHERE id=?");
-        $stmt->execute([$nazwa, $kategoria_id, $cena, $czas, $opis, $sid]);
-        $message = "Usługa została zaktualizowana.";
-    } else {
-        $error = "Błędne dane usługi.";
-    }
-    header("Location: panel_admin.php?tab=services&msg=" . urlencode($message) . "&err=" . urlencode($error));
-    exit();
-}
-
-// 9. USUWANIE USŁUGI
-if (isset($_GET['delete_service'])) {
-    $serviceId = (int)$_GET['delete_service'];
-    $pdo->prepare("DELETE FROM uslugi WHERE id = ?")->execute([$serviceId]);
-    $message = "Usługa została usunięta.";
-    header("Location: panel_admin.php?tab=services&msg=" . urlencode($message));
-    exit();
-}
 
 // Komunikaty z URL
 if (isset($_GET['msg'])) $message = $_GET['msg'];
@@ -301,8 +254,9 @@ require_once 'header.php';
             <button class="nav-link <?= $activeTab === 'users' ? 'active' : '' ?> fw-bold" id="users-tab" data-bs-toggle="tab" data-bs-target="#tab-users" type="button" role="tab">👥 Użytkownicy</button>
         </li>
         <li class="nav-item" role="presentation">
-            <button class="nav-link <?= $activeTab === 'services' ? 'active' : '' ?> fw-bold" id="services-tab" data-bs-toggle="tab" data-bs-target="#tab-services" type="button" role="tab">🛠️ Usługi</button>
+            <a class="nav-link fw-bold" href="admin_uslugi.php">🛠️ Usługi</a>
         </li>
+        <li class="nav-item"><a class="nav-link fw-bold" href="admin_kategorie.php">🗂️ Kategorie</a></li>
         <li class="nav-item" role="presentation">
             <button class="nav-link <?= $activeTab === 'employees' ? 'active' : '' ?> fw-bold" id="emp-tab" data-bs-toggle="tab" data-bs-target="#tab-employees" type="button" role="tab">👨‍🔧 Pracownicy</button>
         </li>
@@ -435,122 +389,6 @@ require_once 'header.php';
             </div>
         </div>
 
-        <!-- ZAKŁADKA 3: USŁUGI -->
-        <div class="tab-pane fade <?= $activeTab === 'services' ? 'show active' : '' ?>" id="tab-services" role="tabpanel">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4>Katalog usług</h4>
-                <button class="btn btn-primary btn-sm" data-bs-toggle="collapse" data-bs-target="#addServiceForm">+ Dodaj nową usługę</button>
-            </div>
-
-            <!-- Formularz dodawania usługi -->
-            <div class="collapse mb-4" id="addServiceForm">
-                <div class="card card-body bg-light">
-                    <h5>Dodawanie nowej usługi</h5>
-                    <form method="post" action="panel_admin.php?tab=services">
-                        <div class="row">
-                            <div class="col-md-4 mb-2">
-                                <label class="form-label">Nazwa usługi</label>
-                                <input type="text" name="nazwa" class="form-control" required>
-                            </div>
-                            <div class="col-md-3 mb-2">
-                                <label class="form-label">Kategoria</label>
-                                <select name="kategoria_id" class="form-select">
-                                    <?php foreach ($categories as $cat): ?>
-                                        <option value="<?= $cat['id'] ?>"><?= htmlspecialchars($cat['nazwa']) ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-2 mb-2">
-                                <label class="form-label">Cena (zł)</label>
-                                <input type="number" step="0.01" name="cena" class="form-control" required>
-                            </div>
-                            <div class="col-md-3 mb-2">
-                                <label class="form-label">Czas trwania (min)</label>
-                                <input type="number" name="czas_trwania" class="form-control" value="30" required>
-                            </div>
-                        </div>
-                        <div class="mb-2">
-                            <label class="form-label">Opis usługi</label>
-                            <textarea name="opis" class="form-control" rows="2"></textarea>
-                        </div>
-                        <button type="submit" name="add_service" class="btn btn-success btn-sm">Zapisz usługę</button>
-                    </form>
-                </div>
-            </div>
-
-            <div class="table-responsive">
-                <table class="table table-hover align-middle">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>ID</th><th>Nazwa usługi</th><th>Kategoria</th><th>Czas</th><th>Cena</th><th>Akcje</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($services as $s): ?>
-                            <tr>
-                                <td><?= $s['id'] ?></td>
-                                <td><strong><?= htmlspecialchars($s['nazwa']) ?></strong><br><small class="text-muted"><?= htmlspecialchars($s['opis'] ?? '') ?></small></td>
-                                <td><span class="badge bg-info text-dark"><?= htmlspecialchars($s['kategoria'] ?? 'Brak') ?></span></td>
-                                <td><?= $s['czas_trwania'] ?> min</td>
-                                <td><?= $s['cena'] ?> zł</td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editServiceModal<?= $s['id'] ?>">Edytuj</button>
-                                    <a href="panel_admin.php?tab=services&delete_service=<?= $s['id'] ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Usunąć tę usługę?')">Usuń</a>
-                                </td>
-                            </tr>
-
-                            <!-- MODAL EDYCJI USŁUGI -->
-                            <div class="modal fade" id="editServiceModal<?= $s['id'] ?>" tabindex="-1">
-                                <div class="modal-dialog">
-                                    <div class="modal-content">
-                                        <form method="post" action="panel_admin.php?tab=services">
-                                            <div class="modal-header">
-                                                <h5 class="modal-title">Edycja usługi: #<?= $s['id'] ?></h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                            </div>
-                                            <div class="modal-body">
-                                                <input type="hidden" name="service_id" value="<?= $s['id'] ?>">
-                                                <div class="mb-2">
-                                                    <label class="form-label">Nazwa</label>
-                                                    <input type="text" name="nazwa" class="form-control" value="<?= htmlspecialchars($s['nazwa']) ?>" required>
-                                                </div>
-                                                <div class="mb-2">
-                                                    <label class="form-label">Kategoria</label>
-                                                    <select name="kategoria_id" class="form-select">
-                                                        <?php foreach ($categories as $cat): ?>
-                                                            <option value="<?= $cat['id'] ?>" <?= $s['kategoria_id'] == $cat['id'] ? 'selected' : '' ?>><?= htmlspecialchars($cat['nazwa']) ?></option>
-                                                        <?php endforeach; ?>
-                                                    </select>
-                                                </div>
-                                                <div class="row">
-                                                    <div class="col-md-6 mb-2">
-                                                        <label class="form-label">Cena (zł)</label>
-                                                        <input type="number" step="0.01" name="cena" class="form-control" value="<?= $s['cena'] ?>" required>
-                                                    </div>
-                                                    <div class="col-md-6 mb-2">
-                                                        <label class="form-label">Czas (min)</label>
-                                                        <input type="number" name="czas_trwania" class="form-control" value="<?= $s['czas_trwania'] ?>" required>
-                                                    </div>
-                                                </div>
-                                                <div class="mb-2">
-                                                    <label class="form-label">Opis</label>
-                                                    <textarea name="opis" class="form-control" rows="2"><?= htmlspecialchars($s['opis'] ?? '') ?></textarea>
-                                                </div>
-                                            </div>
-                                            <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Anuluj</button>
-                                                <button type="submit" name="update_service" class="btn btn-primary btn-sm">Zapisz zmiany</button>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
 
         <!-- ZAKŁADKA 4: PRACOWNICY -->
         <div class="tab-pane fade <?= $activeTab === 'employees' ? 'show active' : '' ?>" id="tab-employees" role="tabpanel">
