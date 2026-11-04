@@ -16,6 +16,10 @@ $error = "";
 
 // Określenie aktywnej zakładki na podstawie URL
 $activeTab = $_GET['tab'] ?? 'reservations';
+if ($activeTab === 'services') {
+    header('Location: admin_uslugi.php');
+    exit();
+}
 
 // 2. AKCJE DLA UŻYTKOWNIKÓW (Blokowanie, Aktywacja, Usuwanie)
 if (isset($_GET['user_action']) && isset($_GET['user_id'])) {
@@ -173,8 +177,6 @@ $countReservations = $pdo->query("SELECT COUNT(*) FROM rezerwacje")->fetchColumn
 
 // Pobieranie danych
 $users = $pdo->query("SELECT * FROM uzytkownicy ORDER BY id DESC")->fetchAll();
-$services = $pdo->query("SELECT u.*, k.nazwa AS kategoria FROM uslugi u LEFT JOIN kategorie_uslug k ON u.kategoria_id = k.id ORDER BY u.id DESC")->fetchAll();
-$categories = $pdo->query("SELECT * FROM kategorie_uslug")->fetchAll();
 
 $reservations = $pdo->query("
     SELECT r.*, k.imie AS k_imie, k.nazwisko AS k_nazwisko,
@@ -256,7 +258,9 @@ require_once 'header.php';
         <li class="nav-item" role="presentation">
             <a class="nav-link fw-bold" href="admin_uslugi.php">🛠️ Usługi</a>
         </li>
-        <li class="nav-item"><a class="nav-link fw-bold" href="admin_kategorie.php">🗂️ Kategorie</a></li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link fw-bold" href="admin_kategorie.php">🗂️ Kategorie</a>
+        </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link <?= $activeTab === 'employees' ? 'active' : '' ?> fw-bold" id="emp-tab" data-bs-toggle="tab" data-bs-target="#tab-employees" type="button" role="tab">👨‍🔧 Pracownicy</button>
         </li>
@@ -388,7 +392,6 @@ require_once 'header.php';
                 </table>
             </div>
         </div>
-
 
         <!-- ZAKŁADKA 4: PRACOWNICY -->
         <div class="tab-pane fade <?= $activeTab === 'employees' ? 'show active' : '' ?>" id="tab-employees" role="tabpanel">
