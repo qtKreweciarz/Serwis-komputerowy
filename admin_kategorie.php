@@ -103,6 +103,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 /* ===================== DANE DO WYŚWIETLENIA ===================== */
+$countClients = $pdo->query("SELECT COUNT(*) FROM uzytkownicy WHERE rola = 'klient'")->fetchColumn();
+$countEmployees = $pdo->query("SELECT COUNT(*) FROM uzytkownicy WHERE rola = 'pracownik'")->fetchColumn();
+$countServices = $pdo->query("SELECT COUNT(*) FROM uslugi")->fetchColumn();
+$countReservations = $pdo->query("SELECT COUNT(*) FROM rezerwacje")->fetchColumn();
+
 $kategorie = $pdo->query("
     SELECT k.id, k.nazwa, k.opis, COUNT(u.id) AS liczba_uslug
     FROM kategorie_uslug k
@@ -111,60 +116,114 @@ $kategorie = $pdo->query("
     ORDER BY k.nazwa
 ")->fetchAll();
 
-$adm_aktywna = 'kategorie';
 require_once 'header.php';
-require_once 'admin_nav.php';
 ?>
 
-<?php adm_flash_wypisz(); ?>
+<div class="container my-4">
+    <!-- GÓRNY NAGŁÓWEK (przycisk dashboardu został usunięty) -->
+    <div class="mb-3">
+        <h2>Panel Administratora</h2>
+    </div>
+    <hr>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h4 class="mb-0">Kategorie usług <span class="badge bg-secondary"><?= count($kategorie) ?></span></h4>
-    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#formModal" data-tryb="dodaj">
-        + Dodaj kategorię
-    </button>
-</div>
+    <?php adm_flash_wypisz(); ?>
 
-<div class="table-responsive">
-    <table class="table table-hover align-middle">
-        <thead class="table-dark">
-            <tr><th>ID</th><th>Nazwa</th><th>Opis</th><th class="text-center">Usługi</th><th class="text-end">Akcje</th></tr>
-        </thead>
-        <tbody>
-        <?php foreach ($kategorie as $k): ?>
-            <tr>
-                <td>#<?= (int)$k['id'] ?></td>
-                <td><strong><?= adm_h($k['nazwa']) ?></strong></td>
-                <td class="text-muted small"><?= adm_h($k['opis'] ?? '') ?></td>
-                <td class="text-center">
-                    <a href="admin_uslugi.php?kategoria=<?= (int)$k['id'] ?>" class="badge bg-info text-dark text-decoration-none">
-                        <?= (int)$k['liczba_uslug'] ?>
-                    </a>
-                </td>
-                <td class="text-end text-nowrap">
-                    <button type="button" class="btn btn-sm btn-outline-primary"
-                            data-bs-toggle="modal" data-bs-target="#formModal" data-tryb="edytuj"
-                            data-id="<?= (int)$k['id'] ?>"
-                            data-nazwa="<?= adm_h($k['nazwa']) ?>"
-                            data-opis="<?= adm_h($k['opis'] ?? '') ?>">Edytuj</button>
+    <!-- STATYSTYKI -->
+    <div class="row text-center mb-4">
+        <div class="col-md-3 mb-2">
+            <div class="card bg-primary text-white p-2">
+                <small>Klienci</small>
+                <div class="fs-4 fw-bold"><?= $countClients ?></div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-2">
+            <div class="card bg-secondary text-white p-2">
+                <small>Pracownicy</small>
+                <div class="fs-4 fw-bold"><?= $countEmployees ?></div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-2">
+            <div class="card bg-info text-white p-2">
+                <small>Usługi</small>
+                <div class="fs-4 fw-bold"><?= $countServices ?></div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-2">
+            <div class="card bg-dark text-white p-2">
+                <small>Rezerwacje</small>
+                <div class="fs-4 fw-bold"><?= $countReservations ?></div>
+            </div>
+        </div>
+    </div>
 
-                    <?php if ((int)$k['liczba_uslug'] > 0): ?>
-                        <span class="d-inline-block" tabindex="0" title="Kategoria zawiera usługi – nie można jej usunąć">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" disabled>Usuń</button>
-                        </span>
-                    <?php else: ?>
-                        <button type="button" class="btn btn-sm btn-outline-danger"
-                                data-bs-toggle="modal" data-bs-target="#deleteModal"
-                                data-id="<?= (int)$k['id'] ?>" data-nazwa="<?= adm_h($k['nazwa']) ?>">Usuń</button>
-                    <?php endif; ?>
-                </td>
-            </tr>
-        <?php endforeach; ?>
-        <?php if (!$kategorie): ?>
-            <tr><td colspan="5" class="text-center text-muted py-4">Brak kategorii. Dodaj pierwszą.</td></tr>
-        <?php endif; ?>
-        </tbody>
-    </table>
+    <!-- SPÓJNA NAWIGACJA W ZAKŁADKACH -->
+    <ul class="nav nav-tabs nav-fill mb-4" id="adminTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <a class="nav-link fw-bold" href="panel_admin.php?tab=reservations">📅 Rezerwacje</a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link fw-bold" href="panel_admin.php?tab=users">👥 Użytkownicy</a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link fw-bold" href="admin_uslugi.php">🛠️ Usługi</a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link active fw-bold" href="admin_kategorie.php">🗂️ Kategorie</a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link fw-bold" href="panel_admin.php?tab=employees">👨‍🔧 Pracownicy</a>
+        </li>
+    </ul>
+
+    <!-- TREŚĆ ZAKŁADKI -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0">Kategorie usług <span class="badge bg-secondary"><?= count($kategorie) ?></span></h4>
+        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#formModal" data-tryb="dodaj">
+            + Dodaj kategorię
+        </button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-dark">
+                <tr><th>ID</th><th>Nazwa</th><th>Opis</th><th class="text-center">Usługi</th><th class="text-end">Akcje</th></tr>
+            </thead>
+            <tbody>
+            <?php foreach ($kategorie as $k): ?>
+                <tr>
+                    <td>#<?= (int)$k['id'] ?></td>
+                    <td><strong><?= adm_h($k['nazwa']) ?></strong></td>
+                    <td class="text-muted small"><?= adm_h($k['opis'] ?? '') ?></td>
+                    <td class="text-center">
+                        <a href="admin_uslugi.php?kategoria=<?= (int)$k['id'] ?>" class="badge bg-info text-dark text-decoration-none">
+                            <?= (int)$k['liczba_uslug'] ?>
+                        </a>
+                    </td>
+                    <td class="text-end text-nowrap">
+                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                data-bs-toggle="modal" data-bs-target="#formModal" data-tryb="edytuj"
+                                data-id="<?= (int)$k['id'] ?>"
+                                data-nazwa="<?= adm_h($k['nazwa']) ?>"
+                                data-opis="<?= adm_h($k['opis'] ?? '') ?>">Edytuj</button>
+
+                        <?php if ((int)$k['liczba_uslug'] > 0): ?>
+                            <span class="d-inline-block" tabindex="0" title="Kategoria zawiera usługi – nie można jej usunąć">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" disabled>Usuń</button>
+                            </span>
+                        <?php else: ?>
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                    data-id="<?= (int)$k['id'] ?>" data-nazwa="<?= adm_h($k['nazwa']) ?>">Usuń</button>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            <?php if (!$kategorie): ?>
+                <tr><td colspan="5" class="text-center text-muted py-4">Brak kategorii. Dodaj pierwszą.</td></tr>
+            <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
 </div>
 
 <!-- OKNO: DODAWANIE / EDYCJA -->
@@ -237,7 +296,7 @@ require_once 'admin_nav.php';
 
     formModal.addEventListener('show.bs.modal', function (e) {
         var b = e.relatedTarget;
-        if (!b) return;                       
+        if (!b) return;                     
         var edycja = b.dataset.tryb === 'edytuj';
         document.getElementById('f-akcja').value = b.dataset.tryb;
         document.getElementById('f-id').value    = edycja ? b.dataset.id : 0;
