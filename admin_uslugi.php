@@ -17,7 +17,7 @@ $filtry = array_filter(
     ['q' => $f_q, 'kategoria' => $f_kategoria ?: '', 'status' => $f_status, 'strona' => $f_strona > 1 ? $f_strona : ''],
     fn($v) => $v !== ''
 );
-$qs_lista = http_build_query($filtry);                       // do linków i akcji formularzy
+$qs_lista = http_build_query($filtry);                     // do linków i akcji formularzy
 $adres_listy = 'admin_uslugi.php' . ($qs_lista ? '?' . $qs_lista : '');
 
 /* ---------- Kategorie do list wyboru ---------- */
@@ -110,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($akcja === 'dodaj') {
                 $pdo->prepare('INSERT INTO uslugi (kategoria_id, nazwa, opis, czas_trwania, cena, aktywna) VALUES (?, ?, ?, ?, ?, ?)')
                     ->execute([$d['kategoria_id'], $d['nazwa'], $d['opis'] !== '' ? $d['opis'] : null,
-                               (int)$d['czas_trwania'], $d['cena'], $d['aktywna']]);
+                              (int)$d['czas_trwania'], $d['cena'], $d['aktywna']]);
                 adm_log($pdo, 'dodanie_uslugi', 'Dodano usługę #' . $pdo->lastInsertId() . ' „' . $d['nazwa'] . '” ('
                     . adm_zl($d['cena']) . ', ' . $d['czas_trwania'] . ' min)');
                 adm_flash('success', 'Usługa „' . $d['nazwa'] . '” została dodana.');
@@ -118,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $pdo->prepare('UPDATE uslugi SET kategoria_id = ?, nazwa = ?, opis = ?, czas_trwania = ?, cena = ?, aktywna = ? WHERE id = ?')
                     ->execute([$d['kategoria_id'], $d['nazwa'], $d['opis'] !== '' ? $d['opis'] : null,
-                               (int)$d['czas_trwania'], $d['cena'], $d['aktywna'], $id]);
+                              (int)$d['czas_trwania'], $d['cena'], $d['aktywna'], $id]);
                 adm_log($pdo, 'edycja_uslugi', 'Zmieniono usługę #' . $id . ' „' . $d['nazwa'] . '” ('
                     . adm_zl($d['cena']) . ', ' . $d['czas_trwania'] . ' min)');
                 adm_flash('success', 'Usługa została zaktualizowana.');
@@ -183,6 +183,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+/* ===================== STATYSTYKI DO KAFELKÓW ===================== */
+$countClients = $pdo->query("SELECT COUNT(*) FROM uzytkownicy WHERE rola = 'klient'")->fetchColumn();
+$countEmployees = $pdo->query("SELECT COUNT(*) FROM uzytkownicy WHERE rola = 'pracownik'")->fetchColumn();
+$countServices = $pdo->query("SELECT COUNT(*) FROM uslugi")->fetchColumn();
+$countReservations = $pdo->query("SELECT COUNT(*) FROM rezerwacje")->fetchColumn();
+
 /* ===================== LISTA USŁUG (filtry + paginacja) ===================== */
 $where = [];
 $par   = [];
@@ -207,7 +213,7 @@ $f_strona = min($f_strona, $stron);
 $st = $pdo->prepare("
     SELECT u.*, k.nazwa AS kategoria,
            (SELECT COUNT(*) FROM pracownicy_uslugi pu WHERE pu.usluga_id = u.id) AS liczba_pracownikow,
-           (SELECT COUNT(*) FROM rezerwacje r WHERE r.usluga_id = u.id)          AS liczba_rezerwacji
+           (SELECT COUNT(*) FROM rezerwacje r WHERE r.usluga_id = u.id)         AS liczba_rezerwacji
     FROM uslugi u
     JOIN kategorie_uslug k ON k.id = u.kategoria_id
     $sql_where
@@ -237,7 +243,6 @@ $f_bez_strony = ['q' => $f_q, 'kategoria' => $f_kategoria ?: '', 'status' => $f_
 
 $adm_aktywna = 'uslugi';
 require_once 'header.php';
-require_once 'admin_nav.php';
 
 $opcje_kat = '';
 foreach ($kategorie as $k) {
@@ -245,140 +250,196 @@ foreach ($kategorie as $k) {
 }
 ?>
 
-<?php adm_flash_wypisz(); ?>
+<div class="container my-4">
+    <!-- GÓRNY NAGŁÓWEK (bez zbędnego przycisku dashboardu) -->
+    <div class="mb-3">
+        <h2>Panel Administratora</h2>
+    </div>
+    <hr>
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h4 class="mb-0">Katalog usług <span class="badge bg-secondary"><?= $razem ?></span></h4>
-    <?php if ($kategorie): ?>
-        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#formModal" data-tryb="dodaj">
-            + Dodaj usługę
-        </button>
-    <?php else: ?>
-        <a href="admin_kategorie.php" class="btn btn-outline-primary btn-sm">Najpierw dodaj kategorię →</a>
+    <?php adm_flash_wypisz(); ?>
+
+    <!-- STATYSTYKI -->
+    <div class="row text-center mb-4">
+        <div class="col-md-3 mb-2">
+            <div class="card bg-primary text-white p-2">
+                <small>Klienci</small>
+                <div class="fs-4 fw-bold"><?= $countClients ?></div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-2">
+            <div class="card bg-secondary text-white p-2">
+                <small>Pracownicy</small>
+                <div class="fs-4 fw-bold"><?= $countEmployees ?></div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-2">
+            <div class="card bg-info text-white p-2">
+                <small>Usługi</small>
+                <div class="fs-4 fw-bold"><?= $countServices ?></div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-2">
+            <div class="card bg-dark text-white p-2">
+                <small>Rezerwacje</small>
+                <div class="fs-4 fw-bold"><?= $countReservations ?></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SPÓJNA NAWIGACJA W ZAKŁADKACH -->
+    <ul class="nav nav-tabs nav-fill mb-4" id="adminTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <a class="nav-link fw-bold" href="panel_admin.php?tab=reservations">📅 Rezerwacje</a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link fw-bold" href="panel_admin.php?tab=users">👥 Użytkownicy</a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link active fw-bold" href="admin_uslugi.php">🛠️ Usługi</a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link fw-bold" href="admin_kategorie.php">🗂️ Kategorie</a>
+        </li>
+        <li class="nav-item" role="presentation">
+            <a class="nav-link fw-bold" href="panel_admin.php?tab=employees">👨‍🔧 Pracownicy</a>
+        </li>
+    </ul>
+
+    <!-- TREŚĆ ZAKŁADKI -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0">Katalog usług <span class="badge bg-secondary"><?= $razem ?></span></h4>
+        <?php if ($kategorie): ?>
+            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#formModal" data-tryb="dodaj">
+                + Dodaj usługę
+            </button>
+        <?php else: ?>
+            <a href="admin_kategorie.php" class="btn btn-outline-primary btn-sm">Najpierw dodaj kategorię →</a>
+        <?php endif; ?>
+    </div>
+
+    <!-- FILTRY / WYSZUKIWANIE -->
+    <form method="get" action="admin_uslugi.php" class="row g-2 mb-3">
+        <div class="col-md-4">
+            <input type="search" name="q" class="form-control form-control-sm" placeholder="Szukaj w nazwie i opisie…" value="<?= adm_h($f_q) ?>">
+        </div>
+        <div class="col-md-3">
+            <select name="kategoria" class="form-select form-select-sm">
+                <option value="0">Wszystkie kategorie</option>
+                <?php foreach ($kategorie as $k): ?>
+                    <option value="<?= (int)$k['id'] ?>" <?= $f_kategoria === (int)$k['id'] ? 'selected' : '' ?>><?= adm_h($k['nazwa']) ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select name="status" class="form-select form-select-sm">
+                <option value="">Wszystkie statusy</option>
+                <option value="aktywne" <?= $f_status === 'aktywne' ? 'selected' : '' ?>>Aktywne</option>
+                <option value="nieaktywne" <?= $f_status === 'nieaktywne' ? 'selected' : '' ?>>Nieaktywne</option>
+            </select>
+        </div>
+        <div class="col-md-2 d-flex gap-1">
+            <button class="btn btn-dark btn-sm flex-fill" type="submit">Filtruj</button>
+            <a href="admin_uslugi.php" class="btn btn-outline-secondary btn-sm">Wyczyść</a>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th><th>Usługa</th><th>Kategoria</th><th>Czas</th><th>Cena</th>
+                    <th class="text-center">Pracownicy</th><th class="text-center">Rezerwacje</th><th>Status</th><th class="text-end">Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($uslugi as $u): ?>
+                <tr class="<?= $u['aktywna'] ? '' : 'table-secondary' ?>">
+                    <td>#<?= (int)$u['id'] ?></td>
+                    <td>
+                        <strong><?= adm_h($u['nazwa']) ?></strong>
+                        <?php if ($u['opis']): ?>
+                            <br><small class="text-muted"><?= adm_h(mb_strimwidth($u['opis'], 0, 90, '…', 'UTF-8')) ?></small>
+                        <?php endif; ?>
+                    </td>
+                    <td><span class="badge bg-info text-dark"><?= adm_h($u['kategoria']) ?></span></td>
+                    <td><?= (int)$u['czas_trwania'] ?> min</td>
+                    <td class="text-nowrap"><?= adm_zl($u['cena']) ?></td>
+                    <td class="text-center">
+                        <?php if ((int)$u['liczba_pracownikow'] === 0): ?>
+                            <span class="badge bg-warning text-dark" title="Żaden pracownik nie wykonuje tej usługi – klient nie zarezerwuje terminu">0</span>
+                        <?php else: ?>
+                            <?= (int)$u['liczba_pracownikow'] ?>
+                        <?php endif; ?>
+                    </td>
+                    <td class="text-center"><?= (int)$u['liczba_rezerwacji'] ?></td>
+                    <td>
+                        <?= $u['aktywna']
+                            ? '<span class="badge bg-success">Aktywna</span>'
+                            : '<span class="badge bg-secondary">Nieaktywna</span>' ?>
+                    </td>
+                    <td class="text-end text-nowrap">
+                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                data-bs-toggle="modal" data-bs-target="#formModal" data-tryb="edytuj"
+                                data-id="<?= (int)$u['id'] ?>"
+                                data-nazwa="<?= adm_h($u['nazwa']) ?>"
+                                data-kategoria="<?= (int)$u['kategoria_id'] ?>"
+                                data-cena="<?= adm_h($u['cena']) ?>"
+                                data-czas="<?= (int)$u['czas_trwania'] ?>"
+                                data-opis="<?= adm_h($u['opis'] ?? '') ?>"
+                                data-aktywna="<?= (int)$u['aktywna'] ?>">Edytuj</button>
+
+                        <form method="post" action="<?= adm_h($akcja_url) ?>" class="d-inline">
+                            <?= adm_csrf_pole() ?>
+                            <input type="hidden" name="akcja" value="przelacz">
+                            <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
+                            <?php if ($u['aktywna']): ?>
+                                <button type="submit" class="btn btn-sm btn-outline-warning">Dezaktywuj</button>
+                            <?php else: ?>
+                                <button type="submit" class="btn btn-sm btn-outline-success">Aktywuj</button>
+                            <?php endif; ?>
+                        </form>
+
+                        <?php if ((int)$u['liczba_rezerwacji'] > 0): ?>
+                            <span class="d-inline-block" tabindex="0" title="Usługa ma rezerwacje – można ją tylko dezaktywować">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" disabled>Usuń</button>
+                            </span>
+                        <?php else: ?>
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                    data-id="<?= (int)$u['id'] ?>" data-nazwa="<?= adm_h($u['nazwa']) ?>">Usuń</button>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            <?php if (!$uslugi): ?>
+                <tr><td colspan="9" class="text-center text-muted py-4">
+                    <?= $razem === 0 && !$where ? 'Brak usług. Dodaj pierwszą.' : 'Brak usług spełniających kryteria wyszukiwania.' ?>
+                </td></tr>
+            <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- PAGINACJA -->
+    <?php if ($stron > 1): ?>
+        <nav aria-label="Strony listy usług" class="mt-3">
+            <ul class="pagination pagination-sm justify-content-center flex-wrap">
+                <li class="page-item <?= $f_strona <= 1 ? 'disabled' : '' ?>">
+                    <a class="page-link" href="<?= adm_h(url_strony($f_strona - 1, $f_bez_strony)) ?>">«</a>
+                </li>
+                <?php for ($i = 1; $i <= $stron; $i++): ?>
+                    <li class="page-item <?= $i === $f_strona ? 'active' : '' ?>">
+                        <a class="page-link" href="<?= adm_h(url_strony($i, $f_bez_strony)) ?>"><?= $i ?></a>
+                    </li>
+                <?php endfor; ?>
+                <li class="page-item <?= $f_strona >= $stron ? 'disabled' : '' ?>">
+                    <a class="page-link" href="<?= adm_h(url_strony($f_strona + 1, $f_bez_strony)) ?>">»</a>
+                </li>
+            </ul>
+        </nav>
     <?php endif; ?>
 </div>
-
-<!-- FILTRY / WYSZUKIWANIE -->
-<form method="get" action="admin_uslugi.php" class="row g-2 mb-3">
-    <div class="col-md-4">
-        <input type="search" name="q" class="form-control form-control-sm" placeholder="Szukaj w nazwie i opisie…" value="<?= adm_h($f_q) ?>">
-    </div>
-    <div class="col-md-3">
-        <select name="kategoria" class="form-select form-select-sm">
-            <option value="0">Wszystkie kategorie</option>
-            <?php foreach ($kategorie as $k): ?>
-                <option value="<?= (int)$k['id'] ?>" <?= $f_kategoria === (int)$k['id'] ? 'selected' : '' ?>><?= adm_h($k['nazwa']) ?></option>
-            <?php endforeach; ?>
-        </select>
-    </div>
-    <div class="col-md-3">
-        <select name="status" class="form-select form-select-sm">
-            <option value="">Wszystkie statusy</option>
-            <option value="aktywne" <?= $f_status === 'aktywne' ? 'selected' : '' ?>>Aktywne</option>
-            <option value="nieaktywne" <?= $f_status === 'nieaktywne' ? 'selected' : '' ?>>Nieaktywne</option>
-        </select>
-    </div>
-    <div class="col-md-2 d-flex gap-1">
-        <button class="btn btn-dark btn-sm flex-fill" type="submit">Filtruj</button>
-        <a href="admin_uslugi.php" class="btn btn-outline-secondary btn-sm">Wyczyść</a>
-    </div>
-</form>
-
-<div class="table-responsive">
-    <table class="table table-hover align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th>ID</th><th>Usługa</th><th>Kategoria</th><th>Czas</th><th>Cena</th>
-                <th class="text-center">Pracownicy</th><th class="text-center">Rezerwacje</th><th>Status</th><th class="text-end">Akcje</th>
-            </tr>
-        </thead>
-        <tbody>
-        <?php foreach ($uslugi as $u): ?>
-            <tr class="<?= $u['aktywna'] ? '' : 'table-secondary' ?>">
-                <td>#<?= (int)$u['id'] ?></td>
-                <td>
-                    <strong><?= adm_h($u['nazwa']) ?></strong>
-                    <?php if ($u['opis']): ?>
-                        <br><small class="text-muted"><?= adm_h(mb_strimwidth($u['opis'], 0, 90, '…', 'UTF-8')) ?></small>
-                    <?php endif; ?>
-                </td>
-                <td><span class="badge bg-info text-dark"><?= adm_h($u['kategoria']) ?></span></td>
-                <td><?= (int)$u['czas_trwania'] ?> min</td>
-                <td class="text-nowrap"><?= adm_zl($u['cena']) ?></td>
-                <td class="text-center">
-                    <?php if ((int)$u['liczba_pracownikow'] === 0): ?>
-                        <span class="badge bg-warning text-dark" title="Żaden pracownik nie wykonuje tej usługi – klient nie zarezerwuje terminu">0</span>
-                    <?php else: ?>
-                        <?= (int)$u['liczba_pracownikow'] ?>
-                    <?php endif; ?>
-                </td>
-                <td class="text-center"><?= (int)$u['liczba_rezerwacji'] ?></td>
-                <td>
-                    <?= $u['aktywna']
-                        ? '<span class="badge bg-success">Aktywna</span>'
-                        : '<span class="badge bg-secondary">Nieaktywna</span>' ?>
-                </td>
-                <td class="text-end text-nowrap">
-                    <button type="button" class="btn btn-sm btn-outline-primary"
-                            data-bs-toggle="modal" data-bs-target="#formModal" data-tryb="edytuj"
-                            data-id="<?= (int)$u['id'] ?>"
-                            data-nazwa="<?= adm_h($u['nazwa']) ?>"
-                            data-kategoria="<?= (int)$u['kategoria_id'] ?>"
-                            data-cena="<?= adm_h($u['cena']) ?>"
-                            data-czas="<?= (int)$u['czas_trwania'] ?>"
-                            data-opis="<?= adm_h($u['opis'] ?? '') ?>"
-                            data-aktywna="<?= (int)$u['aktywna'] ?>">Edytuj</button>
-
-                    <form method="post" action="<?= adm_h($akcja_url) ?>" class="d-inline">
-                        <?= adm_csrf_pole() ?>
-                        <input type="hidden" name="akcja" value="przelacz">
-                        <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
-                        <?php if ($u['aktywna']): ?>
-                            <button type="submit" class="btn btn-sm btn-outline-warning">Dezaktywuj</button>
-                        <?php else: ?>
-                            <button type="submit" class="btn btn-sm btn-outline-success">Aktywuj</button>
-                        <?php endif; ?>
-                    </form>
-
-                    <?php if ((int)$u['liczba_rezerwacji'] > 0): ?>
-                        <span class="d-inline-block" tabindex="0" title="Usługa ma rezerwacje – można ją tylko dezaktywować">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" disabled>Usuń</button>
-                        </span>
-                    <?php else: ?>
-                        <button type="button" class="btn btn-sm btn-outline-danger"
-                                data-bs-toggle="modal" data-bs-target="#deleteModal"
-                                data-id="<?= (int)$u['id'] ?>" data-nazwa="<?= adm_h($u['nazwa']) ?>">Usuń</button>
-                    <?php endif; ?>
-                </td>
-            </tr>
-        <?php endforeach; ?>
-        <?php if (!$uslugi): ?>
-            <tr><td colspan="9" class="text-center text-muted py-4">
-                <?= $razem === 0 && !$where ? 'Brak usług. Dodaj pierwszą.' : 'Brak usług spełniających kryteria wyszukiwania.' ?>
-            </td></tr>
-        <?php endif; ?>
-        </tbody>
-    </table>
-</div>
-
-<!-- PAGINACJA -->
-<?php if ($stron > 1): ?>
-    <nav aria-label="Strony listy usług" class="mt-3">
-        <ul class="pagination pagination-sm justify-content-center flex-wrap">
-            <li class="page-item <?= $f_strona <= 1 ? 'disabled' : '' ?>">
-                <a class="page-link" href="<?= adm_h(url_strony($f_strona - 1, $f_bez_strony)) ?>">«</a>
-            </li>
-            <?php for ($i = 1; $i <= $stron; $i++): ?>
-                <li class="page-item <?= $i === $f_strona ? 'active' : '' ?>">
-                    <a class="page-link" href="<?= adm_h(url_strony($i, $f_bez_strony)) ?>"><?= $i ?></a>
-                </li>
-            <?php endfor; ?>
-            <li class="page-item <?= $f_strona >= $stron ? 'disabled' : '' ?>">
-                <a class="page-link" href="<?= adm_h(url_strony($f_strona + 1, $f_bez_strony)) ?>">»</a>
-            </li>
-        </ul>
-    </nav>
-<?php endif; ?>
 
 <!-- OKNO: DODAWANIE / EDYCJA -->
 <div class="modal fade" id="formModal" tabindex="-1" aria-hidden="true">
