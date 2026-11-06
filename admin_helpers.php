@@ -100,7 +100,20 @@ function adm_log(PDO $pdo, string $akcja, string $opis): void
 /** Obcina nadmiarowe białe znaki ("  Wymiana   dysku " -> "Wymiana dysku"). */
 function adm_tekst($wartosc): string
 {
-    return trim(preg_replace('/\s+/u', ' ', (string)$wartosc));
+    if (!is_string($wartosc)) {
+        return '';
+    }
+    return trim(preg_replace('/\s+/u', ' ', $wartosc));
+}
+
+/** Sprawdza, czy tekst jest poprawną datą w formacie RRRR-MM-DD. */
+function adm_data_ok($tekst): bool
+{
+    if (!is_string($tekst)) {
+        return false;
+    }
+    $d = DateTime::createFromFormat('Y-m-d', $tekst);
+    return $d !== false && $d->format('Y-m-d') === $tekst;
 }
 
 function adm_zl($kwota): string
