@@ -1,11 +1,17 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require_once 'db.php';
-include 'header.php';
 
 $errors = [];
 $success = '';
+$imie = '';
+$nazwisko = '';
+$email = '';
+$telefon = '';
 
-//Generowanie tokena CSRF
+// Generowanie tokena CSRF
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
@@ -17,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $imie = trim($_POST['imie'] ?? '');
     $nazwisko = trim($_POST['nazwisko'] ?? '');
-    $email = trim($_POST['email'] ?? '');
+    $email = strtolower(trim($_POST['email'] ?? ''));
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
     $telefon = trim($_POST['telefon'] ?? '');
@@ -40,9 +46,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (strlen($email) > 100) {
         $errors[] = "E-mail może mieć maksymalnie 100 znaków.";
     }
-    if ($password !== '' && strlen($password) < 8) {
-        $errors[] = "Hasło musi mieć co najmniej 8 znaków.";
+    if ($password !== '' && strlen($password) < 6) {
+        $errors[] = "Hasło musi mieć co najmniej 6 znaków.";
     }
+
     $telefon_do_bazy = null;
     if ($telefon !== '') {
         $czysty = str_replace([' ', '-'], '', $telefon);
@@ -61,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare("SELECT id FROM uzytkownicy WHERE email = ?");
         $stmt->execute([$email]);
         if ($stmt->fetch()) {
-            $errors[] = "Ten adres e-mail jest już zarejestrowany.";
+            $errors[] = "Ten adres e-mail jest już zarejestrowany w systemie.";
         }
     }
 
@@ -71,81 +78,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt = $pdo->prepare("INSERT INTO uzytkownicy (imie, nazwisko, email, haslo, telefon, rola, aktywny) VALUES (?, ?, ?, ?, ?, 'klient', 1)");
         
         if ($stmt->execute([$imie, $nazwisko, $email, $hashed_password, $telefon_do_bazy])) {
-            $success = "Rejestracja przebiegła pomyślnie! Możesz się teraz zalogować.";
+            $success = 'Rejestracja przebiegła pomyślnie! Możesz się teraz <a href="login.php">zalogować</a>.';
             unset($_SESSION['csrf_token']);
+            // Wyczyszczenie zmiennych formularza po sukcesie
+            $imie = $nazwisko = $email = $telefon = '';
         } else {
             $errors[] = "Wystąpił błąd podczas rejestracji. Spróbuj ponownie później.";
         }
     }
 }
-?>
 
-<h2>Rejestracja użytkownika</h2>
-
-<?php if (!empty($errors)): ?>
-    <div style="color: red; background: #ffe6e6; padding: 10px; margin-bottom: 15px; border: 1px solid red;">
-        <ul>
-            <?php foreach ($errors as $error): ?>
-                <li><?= htmlspecialchars($error) ?></li>
-            <?php endforeach; ?>
-        </ul>
-    </div>
-<?php endif; ?>
-<?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-require_once 'db.php';
-$errors = [];
-$success = '';
-$imie = '';
-$nazwisko = '';
-$email = '';
-$telefon = '';
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $imie = trim($_POST['imie'] ?? '');
-    $nazwisko = trim($_POST['nazwisko'] ?? '');
-    $email = strtolower(trim($_POST['email'] ?? ''));
-    $haslo = $_POST['haslo'] ?? '';
-    $telefon = trim($_POST['telefon'] ?? '');
-
-    if ($imie === '' || $nazwisko === '' || $email === '' || $haslo === '') {
-        $errors[] = 'Wypełnij wszystkie wymagane pola.';
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $errors[] = 'Podaj poprawny adres e-mail.';
-    } elseif (strlen($haslo) < 6) {
-        $errors[] = 'Hasło musi mieć co najmniej 6 znaków.';
-    } else {
-        $stmt = $pdo->prepare('SELECT id FROM uzytkownicy WHERE email = ?');
-        $stmt->execute([$email]);
-        if ($stmt->fetch()) {
-            $errors[] = 'Ten adres e-mail jest już zarejestrowany w systemie.';
-        } else {
-            $hash = password_hash($haslo, PASSWORD_DEFAULT);
-            $ins = $pdo->prepare('INSERT INTO uzytkownicy (imie, nazwisko, email, haslo, telefon, rola, aktywny) VALUES (?, ?, ?, ?, ?, "klient", 1)');
-            if ($ins->execute([$imie, $nazwisko, $email, $hash, $telefon])) {
-                $success = 'Rejestracja przebiegła pomyślnie! Możesz się teraz <a href="login.php">zalogować</a>.';
-            } else {
-                $errors[] = 'Wystąpił błąd podczas rejestracji. Spróbuj ponownie.';
-            }
-        }
-    }
-}
 require_once 'header.php';
 ?>
 
-<div class="row justify-content-center mt-4">
+<div class="row justify-content-center mt-4 mb-4">
     <div class="col-md-6">
         <div class="card shadow-sm border-0">
             <div class="card-body p-4">
                 <h2 class="text-center mb-4 fw-bold">Rejestracja konta</h2>
 
-                <?php foreach ($errors as $error): ?>
+                <?php if (!empty($errors)): ?>
                     <div class="alert alert-danger py-2" role="alert">
-                        <?= htmlspecialchars($error) ?>
+                        <ul class="mb-0 ps-3">
+                            <?php foreach ($errors as $error): ?>
+                                <li><?= htmlspecialchars($error) ?></li>
+                            <?php endforeach; ?>
+                        </ul>
                     </div>
-                <?php endforeach; ?>
+                <?php endif; ?>
 
                 <?php if ($success): ?>
                     <div class="alert alert-success py-2" role="alert">
@@ -154,6 +114,9 @@ require_once 'header.php';
                 <?php endif; ?>
 
                 <form method="post" action="register.php">
+                    <!-- Ukryte pole z tokenem CSRF zapobiegające błędom bezpieczeństwa -->
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
+
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label for="imie" class="form-label">Imię *</label>
@@ -175,9 +138,15 @@ require_once 'header.php';
                         <input type="text" class="form-control" id="telefon" name="telefon" value="<?= htmlspecialchars($telefon) ?>">
                     </div>
 
-                    <div class="mb-3">
-                        <label for="haslo" class="form-label">Hasło (min. 6 znaków) *</label>
-                        <input type="password" class="form-control" id="haslo" name="haslo" required>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="password" class="form-label">Hasło (min. 6 znaków) *</label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="confirm_password" class="form-label">Powtórz hasło *</label>
+                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                        </div>
                     </div>
 
                     <button type="submit" class="btn btn-primary w-100 py-2">Zarejestruj się</button>
