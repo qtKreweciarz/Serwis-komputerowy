@@ -111,7 +111,7 @@ require_once 'header.php';
             <div class="card-body p-4">
                 <h4 class="mb-3 fs-5 fw-bold">Bezpieczeństwo</h4>
                 <p class="text-muted mb-3">Zarządzaj swoim bezpieczeństwem i dostępem do konta.</p>
-                <a href="zmien_haslo.php" class="btn btn-outline-secondary btn-sm">Zmień hasło</a>
+                <a href="zmiana_hasla.php" class="btn btn-outline-secondary btn-sm">Zmień hasło</a>
             </div>
         </div>
 
