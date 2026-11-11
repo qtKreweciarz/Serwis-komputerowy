@@ -25,7 +25,18 @@ if (session_status() === PHP_SESSION_NONE) {
                     <li class="nav-item">
                         <a class="nav-link" href="index.php">Strona główna</a>
                     </li>
+
                     <?php if (isset($_SESSION['uzytkownik_id'])): ?>
+                        <!-- Linki widoczne tylko dla klienta -->
+                        <?php if (isset($_SESSION['rola']) && $_SESSION['rola'] === 'klient'): ?>
+                            <li class="nav-item">
+                                <a class="nav-link" href="panel_klient.php">Moje rezerwacje</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-success fw-bold" href="rezerwuj.php">Zarezerwuj wizytę</a>
+                            </li>
+                        <?php endif; ?>
+
                         <?php if (isset($_SESSION['rola']) && $_SESSION['rola'] === 'admin'): ?>
                             <li class="nav-item">
                                 <a class="nav-link text-warning fw-bold" href="panel_admin.php">⚙️ Panel Admina</a>
