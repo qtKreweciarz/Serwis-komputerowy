@@ -37,6 +37,13 @@ if (session_status() === PHP_SESSION_NONE) {
                             </li>
                         <?php endif; ?>
 
+                        <!-- Link widoczny tylko dla pracownika -->
+                        <?php if (isset($_SESSION['rola']) && $_SESSION['rola'] === 'pracownik'): ?>
+                            <li class="nav-item">
+                                <a class="nav-link text-info fw-bold" href="panel_pracownik.php">🛠️ Panel Pracownika</a>
+                            </li>
+                        <?php endif; ?>
+
                         <?php if (isset($_SESSION['rola']) && $_SESSION['rola'] === 'admin'): ?>
                             <li class="nav-item">
                                 <a class="nav-link text-warning fw-bold" href="panel_admin.php">⚙️ Panel Admina</a>
