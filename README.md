@@ -19,17 +19,17 @@ Celem projektu jest stworzenie systemu, który umożliwia obsługę klientów, p
 
 Aplikacja została zaprojektowana z podziałem na role użytkowników (`klient`, `pracownik`, `admin`). W zależności od roli użytkownik może uzyskać dostęp do odpowiedniej części systemu.
 
-Projekt obejmuje mechanizmy rejestracji i logowania, zarządzanie profilem użytkownika, kontrolę uprawnień oraz strukturę bazy danych przygotowaną do obsługi usług, pracowników, dostępności i rezerwacji. Interfejs aplikacji został dostosowany do wymogów nowoczesnego i responsywnego wyglądu (Bootstrap 5).
+Projekt obejmuje mechanizmy rejestracji i logowania, zarządzanie profilem użytkownika, kontrolę uprawnień, panel pracownika z obsługą statusów wizyt i historią zmian oraz strukturę bazy danych przygotowaną do obsługi usług, pracowników, dostępności i rezerwacji. Interfejs aplikacji został dostosowany do wymogów nowoczesnego i responsywnego wyglądu (Bootstrap 5) wraz z układem Flexbox utrzymującym stopkę na dole ekranu (Sticky Footer).
 
 ---
 
 ## 3. Wykorzystane technologie
 
-- **PHP (PDO)** – obsługa logiki aplikacji, formularzy, sesji użytkowników oraz bezpiecznej komunikacji z bazą danych za pomocą zapytań przygotowanych.
-- **HTML5 & CSS3** – struktura oraz wyglądy i formatowanie interfejsu użytkownika.
+- **PHP (PDO)** – obsługa logiki aplikacji, formularzy, sesji użytkowników, transakcji oraz bezpiecznej komunikacji z bazą danych za pomocą zapytań przygotowanych.
+- **HTML5 & CSS3** – struktura oraz wyglądy i formatowanie interfejsu użytkownika (w tym układ Flexbox dla Sticky Footer w `css/style.css`).
 - **Bootstrap 5 (CDN)** – responsywny layout, komponenty interfejsu (karty, nawigacja, modale, zakładki).
-- **JavaScript** – obsługa elementów interfejsu po stronie przeglądarki (Bootstrap bundle JS).
-- **MySQL / MariaDB** – relacyjna baza danych przechowująca informacje o użytkownikach, usługach, pracownikach i rezerwacjach.
+- **JavaScript** – obsługa elementów interfejsu po stronie przeglądarki (Bootstrap bundle JS oraz automatyczne przesyłanie filtrów).
+- **MySQL / MariaDB** – relacyjna baza danych przechowująca informacje o użytkownikach, usługach, pracownikach, historii statusów i rezerwacjach.
 - **Git i GitHub** – przechowywanie kodu źródłowego projektu oraz kontrola wersji.
 
 ---
@@ -80,14 +80,19 @@ Plik `zmiana_hasla.php` obsługuje zmianę hasła użytkownika.
 Funkcja obejmuje:
 - weryfikację dotychczasowego hasła;
 - sprawdzanie minimalnej długości nowego hasła;
-- zapisanie nowego skrótu hasła w bazie danych.
+- zapisanie nowego skrótu hasła w bazie danych;
+- poprawne pozycjonowanie stopki na dole strony dzięki Flexboxowi i strukturze kontenerów.
 
 ### 4.7. Panele użytkowników
 
-W projekcie znajdują się trzy panele przeznaczone dla różnych ról:
+W projekcie znajdują się trzy panele przeznaczone dla różnych ról (z bezpośrednimi odnośnikami w nawigacji `header.php` dopasowanymi do roli zalogowanego użytkownika):
 
 - `panel_klient.php` – panel klienta do przeglądania własnych rezerwacji;
-- `panel_pracownik.php` – panel pracownika;
+- `panel_pracownik.php` – dedykowany panel pracownika:
+  - automatyczne powiązanie zalogowanego użytkownika (`$_SESSION['uzytkownik_id']`) z aktywnym profilem w tabeli `pracownicy`, dzięki czemu pracownik widzi i obsługuje wyłącznie wizyty przypisane do siebie;
+  - prezentacja szczegółów wizyt: termin (data i godziny), dane oraz kontakt klienta (imię, nazwisko, e-mail, telefon, komentarz), rodzaj usługi, czas trwania, cena oraz aktualny status;
+  - filtrowanie wizyt po statusie (`wszystkie`, `oczekujaca`, `potwierdzona`, `zrealizowana`, `anulowana`);
+  - zmiana statusu wizyty (`potwierdzona`, `zrealizowana`, `anulowana`) z ochroną tokenem CSRF, blokadą wiersza i transakcją PDO oraz automatycznym zapisem zmiany w tabeli `historia_statusow_rezerwacji` (`rezerwacja_id`, `status_poprzedni`, `status_nowy`, `zmienione_przez`);
 - `panel_admin.php` – rozbudowany panel administratora podzielony na zakładki (`Bootstrap Nav Tabs`):
   - **Statystyki**: podsumowanie liczby klientów, pracowników, usług i rezerwacji.
   - **Zarządzanie wizytami**: zmiana statusu rezerwacji (potwierdzona, zrealizowana, anulowana) z rejestracją w tabeli `log_administracyjny`.
@@ -107,14 +112,14 @@ Struktura bazy danych znajduje się w pliku `database.sql`. Schemat relacji mię
 | Tabela | Przeznaczenie |
 |---|---|
 | `uzytkownicy` | Dane użytkowników, dane logowania i role (`klient`, `pracownik`, `admin`) |
-| `pracownicy` | Informacje o pracownikach i ich opisy/specjalizacje |
+| `pracownicy` | Informacje o pracownikach (powiązane przez `uzytkownik_id`), opisy/specjalizacje oraz status aktywności |
 | `kategorie_uslug` | Kategorie oferowanych usług |
 | `uslugi` | Dane usług serwisu (cena, czas trwania, opis) |
 | `pracownicy_uslugi` | Powiązania pracowników z wykonywanymi usługami |
 | `dostepnosc_pracownikow` | Dostępność pracowników |
 | `urlopy_pracownikow` | Informacje o urlopach pracowników |
 | `rezerwacje` | Dane dotyczące rezerwacji usług |
-| `historia_statusow_rezerwacji` | Historia zmian statusów rezerwacji |
+| `historia_statusow_rezerwacji` | Historia zmian statusów rezerwacji (`status_poprzedni`, `status_nowy`, `zmienione_przez`, `data_zmiany`) |
 | `log_administracyjny` | Rejestrowanie wybranych działań administracyjnych |
 | `proby_logowania` | Informacje o nieudanych próbach logowania |
 
@@ -122,8 +127,9 @@ Struktura bazy danych znajduje się w pliku `database.sql`. Schemat relacji mię
 
 W strukturze bazy zastosowano:
 - klucze główne i obce z więzami integralności;
-- ograniczenia unikalności (np. dla pola `email`);
+- ograniczenia unikalności (np. dla pola `email` oraz `uzytkownik_id` w tabeli `pracownicy`);
 - indeksy wspierające wyszukiwanie danych;
+- ograniczenia `CHECK` (m.in. dla poprawności godzin, cen, czasu trwania usług i dat urlopów);
 - relacje wiele-do-wielu (np. `pracownicy_uslugi`);
 - przykładowe dane ułatwiające testowanie aplikacji;
 - osobne tabele dla historii statusów, logów administracyjnych oraz prób logowania.
@@ -136,8 +142,8 @@ W strukturze bazy zastosowano:
 |---|---|
 | `index.php` | Strona główna aplikacji |
 | `db.php` | Konfiguracja i połączenie z bazą danych (PDO) |
-| `header.php` | Wspólny nagłówek (zawiera CDN Bootstrap 5 oraz nawigację) |
-| `footer.php` | Wspólna stopka stron |
+| `header.php` | Wspólny nagłówek (zawiera CDN Bootstrap 5 oraz nawigację zależną od roli użytkownika, w tym odnośnik do `panel_pracownik.php`) |
+| `footer.php` | Wspólna stopka stron (utrzymywana na dole dzięki Flexboxowi) |
 | `register.php` | Formularz i obsługa rejestracji użytkownika |
 | `login.php` | Formularz i obsługa logowania |
 | `wyloguj.php` | Skrypt wylogowania (niszczenie sesji) |
@@ -150,11 +156,11 @@ W strukturze bazy zastosowano:
 | `admin_kategorie.php` | Moduł zarządzania kategoriami usług |
 | `admin_nav.php` | Nawigacja panelu administratora |
 | `admin_uslugi.php` | Moduł zarządzania katalogiem usług |
-| `panel_pracownik.php` | Panel dedykowany dla pracowników serwisu |
+| `panel_pracownik.php` | Panel dedykowany dla pracowników serwisu (przypisane wizyty, zmiana statusów, historia statusów) |
 | `panel_klient.php` | Panel klienta do podglądu rezerwacji |
 | `database.sql` | Skrypt SQL tworzący strukturę bazy danych i przykładowe dane |
 | `ERD.png` | Diagram relacyjny bazy danych |
-| `css/` | Katalog z plikami stylów (`style.css`) |
+| `css/` | Katalog z plikami stylów (`style.css` – zmienne, karty, tabele, formularze, Sticky Footer) |
 | `img/` | Katalog z plikami graficznymi |
 
 ---
@@ -190,15 +196,19 @@ Otwórz przeglądarkę i wpisz adres:
 
 ## 8. Dane logowania do testów (Dla Nauczyciela / Egzaminatora)
 
-Poniżej znajdują się dane dostępowe do konta z rolą **administratora**, umożliwiające przetestowanie pełnej funkcjonalności paneli:
+Poniżej znajdują się dane dostępowe do kont testowych umożliwiających sprawdzenie funkcjonalności paneli:
 
+**Konto administratora:**
 - **E-mail:** `[admin@gmail.com]`
 - **Hasło:** `[Admin!Admin]`
 
+**Konto pracownika:**
+- **E-mail:** `pracownik@pracownik.com`
+- **Hasło:** `[Pracownik]`
 ---
 
 ## 9. Podsumowanie
 
-Projekt „System rezerwacji usług serwisu komputerowego” stanowi kompletną aplikację internetową z zaawansowaną kontrolą ról, nowoczesnym i responsywnym interfejsem Bootstrap 5 oraz bezpieczną bazą danych. 
+Projekt „System rezerwacji usług serwisu komputerowego” stanowi kompletną aplikację internetową z zaawansowaną kontrolą ról, nowoczesnym i responsywnym interfejsem Bootstrap 5 oraz bezpieczną bazą danych.
 
-Aplikacja wspiera pełne zarządzanie użytkownikami, usługami, pracownikami oraz statusami rezerwacji z zachowaniem najwyższych standardów bezpieczeństwa (haszowanie haseł, ochrona kont admina, limity prób logowania, zapytania przygotowane PDO).
+Aplikacja wspiera pełne zarządzanie użytkownikami, usługami, pracownikami oraz statusami rezerwacji (wraz z rejestrem zmian statusów w `historia_statusow_rezerwacji`) z zachowaniem wysokich standardów bezpieczeństwa (haszowanie haseł, ochrona kont admina, limity prób logowania, ochrona CSRF, transakcje oraz zapytania przygotowane PDO).
