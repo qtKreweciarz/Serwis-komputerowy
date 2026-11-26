@@ -11,13 +11,16 @@ if (session_status() === PHP_SESSION_NONE) {
     <title>Serwis Komputerowy</title>
     <!-- Bootstrap 5 CSS CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=2">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm mb-4">
+    <nav class="navbar navbar-expand-lg navbar-dark site-nav">
         <div class="container">
-            <a class="navbar-brand fw-bold" href="index.php">💻 Serwis Komputerowy</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <a class="navbar-brand fw-bold" href="index.php">
+                <span class="brand-mark" aria-hidden="true">SC</span>
+                <span>Serwis Komputerowy</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="Otwórz menu">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
@@ -61,12 +64,12 @@ if (session_status() === PHP_SESSION_NONE) {
                             <a class="nav-link" href="register.php">Rejestracja</a>
                         </li>
                         <li class="nav-item ms-lg-2">
-                            <a class="btn btn-primary btn-sm text-white" href="login.php">Logowanie</a>
+                            <a class="btn btn-primary btn-sm" href="login.php">Logowanie</a>
                         </li>
                     <?php endif; ?>
                 </ul>
             </div>
         </div>
     </nav>
-    <main class="container my-4">
+    <main class="container site-main my-4">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
